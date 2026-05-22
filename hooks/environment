@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# shellcheck source=/dev/null
+. "${DIR}/../lib/shared.bash"
+
+declare -a PROPERTIES=(
+  TEST_RUNNER
+  TEST_CMD
+  RESULT_PATH
+  FILES
+  TEST_FILE_PATTERN
+  TEST_FILE_EXCLUDE_PATTERN
+  SPLIT_BY_EXAMPLE
+  TAG_FILTERS
+  LOCATION_PREFIX
+  RETRY_CMD
+  RETRY_COUNT
+  DISABLE_RETRY_FOR_MUTED_TEST
+  MAX_PARALLELISM
+  TARGET_TIME
+  PLAN_IDENTIFIER
+  FAIL_ON_NO_TESTS
+  DEBUG_ENABLED
+)
+
+declare -a exported_vars=()
+
+for prop in "${PROPERTIES[@]}"; do
+  plugin_var="BUILDKITE_PLUGIN_TEST_ENGINE_${prop}"
+  bktec_var="BUILDKITE_TEST_ENGINE_${prop}"
+  if [[ -n "${!plugin_var:-}" ]]; then
+    export "$bktec_var=${!plugin_var}"
+    exported_vars+=("$bktec_var")
+  fi
+done
+
+# TODO: 
+# Update docker and docker-compose plugins to propagate these env vars
+# so we don't have to write them to BUILDKITE_ENV_FILE here.
+propagate_env "${exported_vars[@]}"

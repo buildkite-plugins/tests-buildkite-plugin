@@ -1,0 +1,101 @@
+name: Tests
+description: Sets up your pipeline to run tests with Buildkite Test Engine
+author: https://github.com/buildkite
+requirements:
+  - curl
+  - jq
+configuration:
+  properties:
+    # Plugin-specific
+    oidc-lifetime:
+      type: integer
+      description: Lifetime in seconds for the OIDC token. Defaults to 300.
+    install-client:
+      type: boolean
+      description: >-
+        Enable automatic installation of bktec. Defaults to true. When enabled, bktec is downloaded, added to PATH,
+        and BUILDKITE_TEST_ENGINE_CLIENT_PATH is set to the binary location (useful for mounting the binary into
+        a Docker container). Set to false if you prefer to install bktec yourself.
+    client-version:
+      type: string
+      description: >-
+        Target version of bktec to download (e.g. "2.4.0"). Defaults to the latest release.
+    client-os:
+      type: string
+      description: >-
+        Target OS for the downloaded bktec binary (e.g. "linux", "darwin"). Defaults to the host OS.
+        Useful when the host and the Docker container run different operating systems.
+    client-arch:
+      type: string
+      description: >-
+        Target architecture for the downloaded bktec binary (e.g. "amd64", "arm64"). Defaults to the host architecture.
+        Useful when the host and the Docker container run different architectures.
+
+    # Test Engine
+    suite-slug:
+      type: string
+      description: Slug of the Test Engine suite to report results to. Defaults to the pipeline slug.
+
+    # Test runner
+    test-runner:
+      type: string
+      description: Test runner to use (e.g. "rspec", "jest", "pytest", "gotest").
+    test-cmd:
+      type: string
+      description: Command to run the tests.
+    result-path:
+      type: string
+      description: Path to the output file produced by the test runner.
+    split-by-example:
+      type: boolean
+      description: Enable split by example. Not supported by all test runners.
+
+    # Test filtering
+    files:
+      type: string
+      description: Path to a file containing a list of test files (one per line) to override default test file discovery.
+    test-file-pattern:
+      type: string
+      description: Glob pattern for discovering test files (e.g. "spec/**/*_spec.rb").
+    test-file-exclude-pattern:
+      type: string
+      description: Glob pattern for excluding test files from discovery.
+    tag-filters:
+      type: string
+      description: Tag filters for selecting tests to run. Currently only supported by Pytest.
+    location-prefix:
+      type: string
+      description: Prefix to prepend to test file paths when requesting a test plan.
+
+    # Test runner retry
+    retry-cmd:
+      type: string
+      description: Command to use when retrying failed tests. Defaults to test-cmd.
+    retry-count:
+      type: integer
+      description: Number of times to retry failing tests.
+    disable-retry-for-muted-test:
+      type: boolean
+      description: Disable automatic retry for muted tests.
+
+    # Plan (dynamic mode)
+    max-parallelism:
+      type: integer
+      description: Maximum number of parallel nodes for the test plan. Used with bktec plan.
+    target-time:
+      type: string
+      description: Target duration for each node (e.g. "4m30s"). Must be used with max-parallelism.
+    plan-identifier:
+      type: string
+      description: Test plan identifier from bktec plan. Set automatically in dynamic mode; set manually for static mode.
+
+    # Misc
+    fail-on-no-tests:
+      type: boolean
+      description: Enable failure when no tests are assigned to this node.
+    debug-enabled:
+      type: boolean
+      description: Enable debug output from bktec.
+  required:
+    - test-runner
+  additionalProperties: false

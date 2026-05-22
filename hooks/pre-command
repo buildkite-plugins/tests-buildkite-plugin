@@ -1,0 +1,219 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# shellcheck source=/dev/null
+. "${DIR}/../lib/shared.bash"
+
+BKTEC_API_URL="${BUILDKITE_TEST_ENGINE_BASE_URL:-https://api.buildkite.com}"
+# Audience claims use the app URL (org/suite pages), not the API URL,
+# so strip the "api." subdomain from the configured base.
+BKTEC_APP_URL="${BKTEC_API_URL/:\/\/api./:\/\/}"
+
+verify_checksum() {
+  local bin="$1" version="$2" os="$3" arch="$4"
+  local checksums_url="https://github.com/buildkite/test-engine-client/releases/download/v${version}/bktec_${version}_checksums.txt"
+  local checksums
+  checksums="$(curl -sfL "$checksums_url")" || {
+    echo "Warning: could not fetch checksums from ${checksums_url}, skipping verification" >&2
+    return 0
+  }
+  local expected
+  expected="$(awk -v f="bktec_${version}_${os}_${arch}" '$2 == f {print $1}' <<< "$checksums")"
+  if [[ -z "$expected" ]]; then
+    echo "Error: no checksum entry found for bktec_${version}_${os}_${arch} — refusing to install unverified binary" >&2
+    return 1
+  fi
+  local actual sha256_cmd
+  if command -v sha256sum &>/dev/null; then
+    sha256_cmd="sha256sum"
+  elif command -v shasum &>/dev/null; then
+    sha256_cmd="shasum -a 256"
+  else
+    echo "Error: neither sha256sum nor shasum is installed — cannot verify bktec checksum" >&2
+    return 1
+  fi
+  actual="$($sha256_cmd "$bin" | awk '{print $1}')"
+  if [[ "$actual" != "$expected" ]]; then
+    echo "Checksum mismatch for bktec ${version}: expected ${expected}, got ${actual}" >&2
+    return 1
+  fi
+  echo "Checksum verified for bktec ${version}" >&2
+}
+
+download_bktec() {
+  local dir="$1" os arch version
+  os="${BUILDKITE_PLUGIN_TEST_ENGINE_CLIENT_OS:-$(uname -s | tr '[:upper:]' '[:lower:]')}"
+  arch="${BUILDKITE_PLUGIN_TEST_ENGINE_CLIENT_ARCH:-$(uname -m)}"
+  case "$arch" in
+    x86_64)        arch="amd64" ;;
+    arm64|aarch64) arch="arm64" ;;
+  esac
+  version="${BUILDKITE_PLUGIN_TEST_ENGINE_CLIENT_VERSION:-}"
+  if [[ -n "$version" ]]; then
+    if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+      echo "Error: invalid bktec version '${version}' — expected format: MAJOR.MINOR.PATCH (e.g. 2.4.0)" >&2
+      return 1
+    fi
+  else
+    echo "Fetching latest bktec version..." >&2
+    local github_api_url="https://api.github.com/repos/buildkite/test-engine-client/releases/latest"
+    version="$(curl -sf ${GITHUB_TOKEN:+-H "Authorization: Bearer ${GITHUB_TOKEN}"} "$github_api_url" \
+      | jq -r '.tag_name | ltrimstr("v")')" \
+      || version="$(curl -sf "$github_api_url" | jq -r '.tag_name | ltrimstr("v")')"
+  fi
+  local bin="${dir}/${version}/${os}_${arch}/bktec"
+  if [[ -x "$bin" ]]; then
+    echo "Using cached bktec ${version} (${os}/${arch})" >&2
+    echo "$bin"
+    return
+  fi
+  echo "Downloading bktec ${version} (${os}/${arch})" >&2
+  mkdir -p "${dir}/${version}/${os}_${arch}"
+  local tmp="${bin}.tmp.$$"
+  curl -fL --progress-bar \
+    "https://github.com/buildkite/test-engine-client/releases/download/v${version}/bktec_${version}_${os}_${arch}" \
+    -o "$tmp"
+  verify_checksum "$tmp" "$version" "$os" "$arch"
+  chmod +x "$tmp"
+  mv "$tmp" "$bin"
+  echo "$bin"
+}
+
+org_oidc_audience() {
+  echo "${BKTEC_APP_URL}/${BUILDKITE_ORGANIZATION_SLUG:-}"
+}
+
+suite_oidc_audience() {
+  local slug="${BUILDKITE_PLUGIN_TEST_ENGINE_SUITE_SLUG:-${BUILDKITE_PIPELINE_SLUG:-}}"
+  echo "${BKTEC_APP_URL}/organizations/${BUILDKITE_ORGANIZATION_SLUG:-}/analytics/suites/${slug}"
+}
+
+request_oidc_token() {
+  local audience="$1" lifetime
+  lifetime="${BUILDKITE_PLUGIN_TEST_ENGINE_OIDC_LIFETIME:-300}"
+  # Log to stderr so the caller can capture just the token from stdout.
+  echo "--- :buildkite::key: Requesting OIDC token for Test Suite" >&2
+  echo "Audience: ${audience}" >&2
+  echo "Lifetime: ${lifetime}s" >&2
+  buildkite-agent oidc request-token --audience "$audience" --lifetime "$lifetime"
+}
+
+# Echoes the HTTP status code to stdout. Logs the response body to stderr on
+# unexpected (non-200/404/401) statuses so the caller only needs the status.
+get_suite() {
+  local token="$1" slug="$2" response status body
+  response="$(curl -s -w '\n%{http_code}' \
+    -H "Authorization: Bearer ${token}" \
+    "${BKTEC_API_URL}/v2/analytics/organizations/${BUILDKITE_ORGANIZATION_SLUG}/suites/${slug}")"
+  status="${response##*$'\n'}"
+  body="${response%$'\n'*}"
+  if [[ "$status" != "200" && "$status" != "404" && "$status" != "401" ]]; then
+    local message
+    message="$(jq -r '.message // empty' <<< "$body" 2>/dev/null)" || true
+    echo "Failed to get Test Suite (HTTP ${status}): ${message:-$body}" >&2
+  fi
+  echo "$status"
+}
+
+# Bootstraps the suite via POST /suites/create_from_pipeline using the provided
+# org-scoped OIDC token. Slug is optional: only sent in the request body when
+# explicitly configured via the plugin option, otherwise the API derives the
+# suite identity from the calling pipeline.
+# Echoes the HTTP status code to stdout. Logs the response body to stderr on
+# unexpected (non-200/201) statuses so the caller only needs the status.
+create_suite() {
+  local token="$1" slug="${2:-}" data response status body
+  if [[ -n "$slug" ]]; then
+    data="$(jq -n --arg slug "$slug" '{slug: $slug}')"
+  else
+    data="{}"
+  fi
+  response="$(curl -s -w '\n%{http_code}' \
+    -X POST \
+    -H "Authorization: Bearer ${token}" \
+    -H "Content-Type: application/json" \
+    --data "$data" \
+    "${BKTEC_API_URL}/v2/analytics/organizations/${BUILDKITE_ORGANIZATION_SLUG}/suites/create_from_pipeline")"
+  status="${response##*$'\n'}"
+  body="${response%$'\n'*}"
+  if [[ "$status" != "200" && "$status" != "201" ]]; then
+    local message
+    message="$(jq -r '.message // empty' <<< "$body" 2>/dev/null)" || true
+    echo "Failed to create Test Suite (HTTP ${status}): ${message:-$body}" >&2
+  fi
+  echo "$status"
+}
+
+# Ensures the suite exists. Resolves the suite slug from the plugin option or
+# pipeline slug, attempts a GET with the provided suite-scoped OIDC token, and
+# falls back to an org-scoped token + create_suite if not found. Echoes the
+# suite slug to stdout so the caller can capture and export it.
+ensure_suite() {
+  local suite_token="$1"
+  local slug="${BUILDKITE_PLUGIN_TEST_ENGINE_SUITE_SLUG:-${BUILDKITE_PIPELINE_SLUG}}"
+
+  echo "--- :buildkite: Fetching Test Suite using OIDC token" >&2
+  if [[ -z "${BUILDKITE_PLUGIN_TEST_ENGINE_SUITE_SLUG:-}" ]]; then
+    echo "No suite slug configured, deriving from pipeline: ${slug}" >&2
+  else
+    echo "Using configured suite slug: ${slug}" >&2
+  fi
+  local get_suite_status
+  get_suite_status="$(get_suite "$suite_token" "$slug")"
+  if [[ "$get_suite_status" == "200" ]]; then
+    echo "Test Suite found" >&2
+  elif [[ "$get_suite_status" == "404" || "$get_suite_status" == "401" ]]; then
+    # 401 is expected when the suite doesn't exist yet: a suite-scoped token
+    # is invalid until the suite exists, so auth fails before we get a 404.
+    echo "Test Suite not found (HTTP ${get_suite_status}), bootstrapping from Pipeline" >&2
+    local org_token create_suite_status
+    org_token="$(request_oidc_token "$(org_oidc_audience)")"
+    echo "--- :buildkite: Creating Test Suite using OIDC token" >&2
+    create_suite_status="$(create_suite "$org_token" "${BUILDKITE_PLUGIN_TEST_ENGINE_SUITE_SLUG:-}")"
+    if [[ "$create_suite_status" != "200" && "$create_suite_status" != "201" ]]; then
+      exit 1
+    fi
+    echo "Test Suite ready (HTTP ${create_suite_status})" >&2
+  else
+    exit 1
+  fi
+  echo "$slug"
+}
+
+suite_token="$(request_oidc_token "$(suite_oidc_audience)")"
+suite_slug="$(ensure_suite "$suite_token")"
+export BUILDKITE_TEST_ENGINE_SUITE_SLUG="$suite_slug"
+export BUILDKITE_ANALYTICS_TOKEN="$suite_token"
+export BUILDKITE_TEST_ENGINE_API_ACCESS_TOKEN="$suite_token"
+# TODO: 
+# Update docker and docker-compose plugins to propagate these env vars
+# so we don't have to write them to BUILDKITE_ENV_FILE here.
+propagate_env BUILDKITE_TEST_ENGINE_SUITE_SLUG BUILDKITE_ANALYTICS_TOKEN BUILDKITE_TEST_ENGINE_API_ACCESS_TOKEN
+
+if [[ "${BUILDKITE_PLUGIN_TEST_ENGINE_INSTALL_CLIENT:-true}" =~ ^(true|on|1)$ ]]; then
+  echo "--- :buildkite: Installing bktec" >&2
+
+  # install only if bktec is NOT already on PATH,
+  # or if a specific version/OS/arch is requested.
+  should_install_bktec() {
+    if ! command -v bktec &>/dev/null; then
+      return 0
+    fi
+    [[ -n "${BUILDKITE_PLUGIN_TEST_ENGINE_CLIENT_VERSION:-}" ]] \
+      || [[ -n "${BUILDKITE_PLUGIN_TEST_ENGINE_CLIENT_OS:-}" ]] \
+      || [[ -n "${BUILDKITE_PLUGIN_TEST_ENGINE_CLIENT_ARCH:-}" ]]
+  }
+
+  if should_install_bktec; then
+    BKTEC_BIN="$(download_bktec "${TMPDIR:-/tmp}/buildkite-plugin-test-engine")"
+    BKTEC_DIR="$(dirname "$BKTEC_BIN")"
+    export BUILDKITE_TEST_ENGINE_CLIENT_PATH="$BKTEC_BIN"
+    export PATH="${PATH}:${BKTEC_DIR}"
+  else
+    BKTEC_BIN="$(command -v bktec)"
+    echo "bktec already installed at ${BKTEC_BIN}, skipping download" >&2
+    export BUILDKITE_TEST_ENGINE_CLIENT_PATH="$BKTEC_BIN"
+  fi
+fi
