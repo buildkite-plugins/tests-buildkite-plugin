@@ -1,4 +1,4 @@
-# Tests Buildkite Plugin [![Build status](https://badge.buildkite.com/74fa0467f2882c02503bf4fea1fec74d1ce5830e47307651bb.svg)](https://buildkite.com/buildkite/plugins-tests)
+# Tests Buildkite Plugin [![Build status](https://badge.buildkite.com/74fa0467f2882c02503bf4fea1fec74d1ce5830e47307651bb.svg?branch=main)](https://buildkite.com/buildkite/plugins-tests)
 
 A [Buildkite plugin](https://buildkite.com/docs/agent/v3/plugins) that sets up your pipeline to run tests with [Buildkite Test Engine](https://buildkite.com/docs/test-engine). The plugin downloads the [Test Engine Client (bktec)](https://github.com/buildkite/test-engine-client), requests an [OIDC](https://buildkite.com/docs/pipelines/security/oidc) token, ensures your [test suite](https://buildkite.com/docs/test-engine/test-suites) exists, and exports the environment variables that bktec expects.
 
