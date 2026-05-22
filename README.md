@@ -236,4 +236,4 @@ Bug reports and pull requests are welcome on GitHub at https://github.com/buildk
 
 ## License
 
-MIT (see [LICENSE](LICENSE)).
+MIT (see [LICENSE.txt](LICENSE.txt)).

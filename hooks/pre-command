@@ -70,8 +70,10 @@ download_bktec() {
     return
   fi
   echo "Downloading bktec ${version} (${os}/${arch})" >&2
-  mkdir -p "${dir}/${version}/${os}_${arch}"
-  local tmp="${bin}.tmp.$$"
+  download_dir="${dir}/${version}/${os}_${arch}"
+  mkdir -p "$download_dir"
+  local tmp
+  tmp=$(mktemp "${download_dir}/bktec.XXXXXXX")
   curl -fL --progress-bar \
     "https://github.com/buildkite/test-engine-client/releases/download/v${version}/bktec_${version}_${os}_${arch}" \
     -o "$tmp"

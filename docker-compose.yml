@@ -1,0 +1,10 @@
+services:
+  tests:
+    image: buildkite/plugin-tester:v4.1.1
+    volumes:
+      - ".:/plugin"
+  lint:
+    command: --id tests --path /plugin
+    image: buildkite/plugin-linter
+    volumes:
+      - ".:/plugin"

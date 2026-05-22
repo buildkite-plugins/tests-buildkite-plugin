@@ -1,0 +1,12 @@
+steps:
+  - name: ":bash: Test"
+    id: test
+    plugins:
+      - docker-compose#v5.12.1:
+          run: tests
+
+  - name: ":lint-roller: Lint"
+    id: lint
+    plugins:
+      - docker-compose#v5.12.1:
+          run: lint
