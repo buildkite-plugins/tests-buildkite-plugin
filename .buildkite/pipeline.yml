@@ -1,0 +1,4 @@
+steps:
+  - plugins:
+      - docker-compose#v5.12.1:
+          run: tests
