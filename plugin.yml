@@ -35,6 +35,11 @@ configuration:
     suite-slug:
       type: string
       description: Slug of the Test Engine suite to report results to. Defaults to the pipeline slug.
+    upload-results:
+      type: boolean
+      description: >-
+        Upload test results to Test Engine. Default: true. Set to false if you use the test collectors for richer
+        data collection, or if you want to handle the upload yourself.
 
     # Test runner
     test-runner:

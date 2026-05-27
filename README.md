@@ -188,6 +188,10 @@ Test plan identifier created by `bktec plan`. Set automatically in dynamic mode;
 
 Exit with an error if no tests are assigned to this node.
 
+#### `upload-results` (optional, boolean)
+
+Upload test results to Test Engine. Default: `true`. Set to `false` if you use the [test collectors](https://buildkite.com/docs/test-engine/test-collection/) for richer data collection, or if you want to handle the upload yourself.
+
 #### `debug-enabled` (optional, boolean)
 
 Enable verbose output.

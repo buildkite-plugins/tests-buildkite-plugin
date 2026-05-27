@@ -18,6 +18,7 @@ declare -a PROPERTIES=(
   LOCATION_PREFIX
   RETRY_CMD
   RETRY_COUNT
+  UPLOAD_RESULTS
   DISABLE_RETRY_FOR_MUTED_TEST
   MAX_PARALLELISM
   TARGET_TIME
@@ -27,6 +28,10 @@ declare -a PROPERTIES=(
 )
 
 declare -a exported_vars=()
+
+# bktec disables upload by default to avoid double uploads for existing
+# test-collector users. The plugin opts new users in, so default to true unless set.
+: "${BUILDKITE_PLUGIN_TEST_ENGINE_UPLOAD_RESULTS:=true}"
 
 for prop in "${PROPERTIES[@]}"; do
   plugin_var="BUILDKITE_PLUGIN_TEST_ENGINE_${prop}"
