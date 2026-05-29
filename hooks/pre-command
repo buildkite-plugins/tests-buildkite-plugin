@@ -24,10 +24,10 @@ version_lt() {
   return 1
 }
 
-if [[ -n "${BUILDKITE_PLUGIN_TEST_ENGINE_CLIENT_VERSION:-}" ]] \
+if [[ -n "${BUILDKITE_PLUGIN_TESTS_CLIENT_VERSION:-}" ]] \
   && [[ "${BUILDKITE_TEST_ENGINE_UPLOAD_RESULTS:-true}" =~ ^(true|on|1)$ ]] \
-  && version_lt "${BUILDKITE_PLUGIN_TEST_ENGINE_CLIENT_VERSION}" "${UPLOAD_MIN_VERSION}"; then
-  echo "Error: bktec ${BUILDKITE_PLUGIN_TEST_ENGINE_CLIENT_VERSION} does not support upload_results — minimum required version is ${UPLOAD_MIN_VERSION}. Upgrade to ${UPLOAD_MIN_VERSION}+, or set upload-results: false." >&2
+  && version_lt "${BUILDKITE_PLUGIN_TESTS_CLIENT_VERSION}" "${UPLOAD_MIN_VERSION}"; then
+  echo "Error: bktec ${BUILDKITE_PLUGIN_TESTS_CLIENT_VERSION} does not support upload_results — minimum required version is ${UPLOAD_MIN_VERSION}. Upgrade to ${UPLOAD_MIN_VERSION}+, or set upload-results: false." >&2
   exit 1
 fi
 
@@ -64,13 +64,13 @@ verify_checksum() {
 
 download_bktec() {
   local dir="$1" os arch version
-  os="${BUILDKITE_PLUGIN_TEST_ENGINE_CLIENT_OS:-$(uname -s | tr '[:upper:]' '[:lower:]')}"
-  arch="${BUILDKITE_PLUGIN_TEST_ENGINE_CLIENT_ARCH:-$(uname -m)}"
+  os="${BUILDKITE_PLUGIN_TESTS_CLIENT_OS:-$(uname -s | tr '[:upper:]' '[:lower:]')}"
+  arch="${BUILDKITE_PLUGIN_TESTS_CLIENT_ARCH:-$(uname -m)}"
   case "$arch" in
     x86_64)        arch="amd64" ;;
     arm64|aarch64) arch="arm64" ;;
   esac
-  version="${BUILDKITE_PLUGIN_TEST_ENGINE_CLIENT_VERSION:-}"
+  version="${BUILDKITE_PLUGIN_TESTS_CLIENT_VERSION:-}"
   if [[ -n "$version" ]]; then
     if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
       echo "Error: invalid bktec version '${version}' — expected format: MAJOR.MINOR.PATCH (e.g. 2.4.0)" >&2
@@ -108,13 +108,13 @@ org_oidc_audience() {
 }
 
 suite_oidc_audience() {
-  local slug="${BUILDKITE_PLUGIN_TEST_ENGINE_SUITE_SLUG:-${BUILDKITE_PIPELINE_SLUG:-}}"
+  local slug="${BUILDKITE_PLUGIN_TESTS_SUITE_SLUG:-${BUILDKITE_PIPELINE_SLUG:-}}"
   echo "${BKTEC_APP_URL}/organizations/${BUILDKITE_ORGANIZATION_SLUG:-}/analytics/suites/${slug}"
 }
 
 request_oidc_token() {
   local audience="$1" lifetime
-  lifetime="${BUILDKITE_PLUGIN_TEST_ENGINE_OIDC_LIFETIME:-300}"
+  lifetime="${BUILDKITE_PLUGIN_TESTS_OIDC_LIFETIME:-300}"
   # Log to stderr so the caller can capture just the token from stdout.
   echo "--- :buildkite::key: Requesting OIDC token for Test Suite" >&2
   echo "Audience: ${audience}" >&2
@@ -174,10 +174,10 @@ create_suite() {
 # suite slug to stdout so the caller can capture and export it.
 ensure_suite() {
   local suite_token="$1"
-  local slug="${BUILDKITE_PLUGIN_TEST_ENGINE_SUITE_SLUG:-${BUILDKITE_PIPELINE_SLUG}}"
+  local slug="${BUILDKITE_PLUGIN_TESTS_SUITE_SLUG:-${BUILDKITE_PIPELINE_SLUG}}"
 
   echo "--- :buildkite: Fetching Test Suite using OIDC token" >&2
-  if [[ -z "${BUILDKITE_PLUGIN_TEST_ENGINE_SUITE_SLUG:-}" ]]; then
+  if [[ -z "${BUILDKITE_PLUGIN_TESTS_SUITE_SLUG:-}" ]]; then
     echo "No suite slug configured, deriving from pipeline: ${slug}" >&2
   else
     echo "Using configured suite slug: ${slug}" >&2
@@ -193,7 +193,7 @@ ensure_suite() {
     local org_token create_suite_status
     org_token="$(request_oidc_token "$(org_oidc_audience)")"
     echo "--- :buildkite: Creating Test Suite using OIDC token" >&2
-    create_suite_status="$(create_suite "$org_token" "${BUILDKITE_PLUGIN_TEST_ENGINE_SUITE_SLUG:-}")"
+    create_suite_status="$(create_suite "$org_token" "${BUILDKITE_PLUGIN_TESTS_SUITE_SLUG:-}")"
     if [[ "$create_suite_status" != "200" && "$create_suite_status" != "201" ]]; then
       exit 1
     fi
@@ -214,7 +214,7 @@ export BUILDKITE_TEST_ENGINE_API_ACCESS_TOKEN="$suite_token"
 # so we don't have to write them to BUILDKITE_ENV_FILE here.
 propagate_env BUILDKITE_TEST_ENGINE_SUITE_SLUG BUILDKITE_ANALYTICS_TOKEN BUILDKITE_TEST_ENGINE_API_ACCESS_TOKEN
 
-if [[ "${BUILDKITE_PLUGIN_TEST_ENGINE_INSTALL_CLIENT:-true}" =~ ^(true|on|1)$ ]]; then
+if [[ "${BUILDKITE_PLUGIN_TESTS_INSTALL_CLIENT:-true}" =~ ^(true|on|1)$ ]]; then
   echo "--- :buildkite: Installing bktec" >&2
 
   # install only if bktec is NOT already on PATH,
@@ -223,9 +223,9 @@ if [[ "${BUILDKITE_PLUGIN_TEST_ENGINE_INSTALL_CLIENT:-true}" =~ ^(true|on|1)$ ]]
     if ! command -v bktec &>/dev/null; then
       return 0
     fi
-    [[ -n "${BUILDKITE_PLUGIN_TEST_ENGINE_CLIENT_VERSION:-}" ]] \
-      || [[ -n "${BUILDKITE_PLUGIN_TEST_ENGINE_CLIENT_OS:-}" ]] \
-      || [[ -n "${BUILDKITE_PLUGIN_TEST_ENGINE_CLIENT_ARCH:-}" ]]
+    [[ -n "${BUILDKITE_PLUGIN_TESTS_CLIENT_VERSION:-}" ]] \
+      || [[ -n "${BUILDKITE_PLUGIN_TESTS_CLIENT_OS:-}" ]] \
+      || [[ -n "${BUILDKITE_PLUGIN_TESTS_CLIENT_ARCH:-}" ]]
   }
 
   if should_install_bktec; then
