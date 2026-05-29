@@ -11,6 +11,26 @@ BKTEC_API_URL="${BUILDKITE_TEST_ENGINE_BASE_URL:-https://api.buildkite.com}"
 # so strip the "api." subdomain from the configured base.
 BKTEC_APP_URL="${BKTEC_API_URL/:\/\/api./:\/\/}"
 
+UPLOAD_MIN_VERSION="2.7.0"
+
+version_lt() {
+  local IFS=.
+  local i va=($1) vb=($2)
+  [[ "$1" == "$2" ]] && return 1
+  for ((i=0; i<3; i++)); do
+    (( ${va[i]:-0} < ${vb[i]:-0} )) && return 0
+    (( ${va[i]:-0} > ${vb[i]:-0} )) && return 1
+  done
+  return 1
+}
+
+if [[ -n "${BUILDKITE_PLUGIN_TEST_ENGINE_CLIENT_VERSION:-}" ]] \
+  && [[ "${BUILDKITE_TEST_ENGINE_UPLOAD_RESULTS:-true}" =~ ^(true|on|1)$ ]] \
+  && version_lt "${BUILDKITE_PLUGIN_TEST_ENGINE_CLIENT_VERSION}" "${UPLOAD_MIN_VERSION}"; then
+  echo "Error: bktec ${BUILDKITE_PLUGIN_TEST_ENGINE_CLIENT_VERSION} does not support upload_results — minimum required version is ${UPLOAD_MIN_VERSION}. Upgrade to ${UPLOAD_MIN_VERSION}+, or set upload-results: false." >&2
+  exit 1
+fi
+
 verify_checksum() {
   local bin="$1" version="$2" os="$3" arch="$4"
   local checksums_url="https://github.com/buildkite/test-engine-client/releases/download/v${version}/bktec_${version}_checksums.txt"
@@ -217,5 +237,11 @@ if [[ "${BUILDKITE_PLUGIN_TEST_ENGINE_INSTALL_CLIENT:-true}" =~ ^(true|on|1)$ ]]
     BKTEC_BIN="$(command -v bktec)"
     echo "bktec already installed at ${BKTEC_BIN}, skipping download" >&2
     export BUILDKITE_TEST_ENGINE_CLIENT_PATH="$BKTEC_BIN"
+    if [[ "${BUILDKITE_TEST_ENGINE_UPLOAD_RESULTS:-true}" =~ ^(true|on|1)$ ]]; then
+      existing_version="$(bktec --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)"
+      if [[ -n "$existing_version" ]] && version_lt "$existing_version" "${UPLOAD_MIN_VERSION}"; then
+        echo "Warning: bktec ${existing_version} does not support upload_results (requires >= ${UPLOAD_MIN_VERSION}). Test results will not be uploaded." >&2
+      fi
+    fi
   fi
 fi
