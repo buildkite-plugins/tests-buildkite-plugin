@@ -20,7 +20,7 @@ setup() {
   stub curl \
     "-s -w '\\n%{http_code}' -H 'Authorization: Bearer faketoken' 'https://api.buildkite.com/v2/analytics/organizations/myorg/suites/mypipeline' : echo '{}' ; echo 200"
 
-  export BUILDKITE_PLUGIN_TEST_ENGINE_INSTALL_CLIENT=false
+  export BUILDKITE_PLUGIN_TESTS_INSTALL_CLIENT=false
 
   run $PWD/hooks/pre-command
   assert_success
@@ -35,7 +35,7 @@ setup() {
   export BUILDKITE_ENV_FILE=$(mktemp)
   export BUILDKITE_ORGANIZATION_SLUG="myorg"
   export BUILDKITE_PIPELINE_SLUG="mypipeline"
-  export BUILDKITE_PLUGIN_TEST_ENGINE_CLIENT_VERSION=2.6.0
+  export BUILDKITE_PLUGIN_TESTS_CLIENT_VERSION=2.6.0
   export BUILDKITE_TEST_ENGINE_UPLOAD_RESULTS=true
 
   run $PWD/hooks/pre-command
@@ -47,7 +47,7 @@ setup() {
   export BUILDKITE_ENV_FILE=$(mktemp)
   export BUILDKITE_ORGANIZATION_SLUG="myorg"
   export BUILDKITE_PIPELINE_SLUG="mypipeline"
-  export BUILDKITE_PLUGIN_TEST_ENGINE_CLIENT_VERSION=2.6.0
+  export BUILDKITE_PLUGIN_TESTS_CLIENT_VERSION=2.6.0
   export BUILDKITE_TEST_ENGINE_UPLOAD_RESULTS=false
 
   audience="https://buildkite.com/organizations/myorg/analytics/suites/mypipeline"
@@ -60,7 +60,7 @@ setup() {
     "-s -w '\\n%{http_code}' -H 'Authorization: Bearer faketoken' 'https://api.buildkite.com/v2/analytics/organizations/myorg/suites/mypipeline' : echo '{}' ; echo 200" \
     "-fL --progress-bar https://github.com/buildkite/test-engine-client/releases/download/v2.6.0/bktec_2.6.0_linux_amd64 -o ${tmpfile} : cp $PWD/tests/fixtures/bktec_2.6.0 ${tmpfile}" \
     "-sfL https://github.com/buildkite/test-engine-client/releases/download/v2.6.0/bktec_2.6.0_checksums.txt : cat $PWD/tests/fixtures/bktec_2.6.0_checksums.txt"
-  export BUILDKITE_PLUGIN_TEST_ENGINE_INSTALL_CLIENT=true
+  export BUILDKITE_PLUGIN_TESTS_INSTALL_CLIENT=true
 
   run $PWD/hooks/pre-command
   assert_success
@@ -104,7 +104,7 @@ setup() {
     "-sf https://api.github.com/repos/buildkite/test-engine-client/releases/latest : cat $PWD/tests/fixtures/bktec-releases.json" \
     "-fL --progress-bar https://github.com/buildkite/test-engine-client/releases/download/v2.6.0/bktec_2.6.0_linux_amd64 -o ${tmpfile} : cp $PWD/tests/fixtures/bktec_2.6.0 ${tmpfile}" \
     "-sfL https://github.com/buildkite/test-engine-client/releases/download/v2.6.0/bktec_2.6.0_checksums.txt : cat $PWD/tests/fixtures/bktec_2.6.0_checksums.txt"
-  export BUILDKITE_PLUGIN_TEST_ENGINE_INSTALL_CLIENT=true
+  export BUILDKITE_PLUGIN_TESTS_INSTALL_CLIENT=true
 
   source $PWD/hooks/pre-command
 

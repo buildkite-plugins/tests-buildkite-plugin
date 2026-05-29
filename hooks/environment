@@ -31,10 +31,10 @@ declare -a exported_vars=()
 
 # bktec disables upload by default to avoid double uploads for existing
 # test-collector users. The plugin opts new users in, so default to true unless set.
-: "${BUILDKITE_PLUGIN_TEST_ENGINE_UPLOAD_RESULTS:=true}"
+: "${BUILDKITE_PLUGIN_TESTS_UPLOAD_RESULTS:=true}"
 
 for prop in "${PROPERTIES[@]}"; do
-  plugin_var="BUILDKITE_PLUGIN_TEST_ENGINE_${prop}"
+  plugin_var="BUILDKITE_PLUGIN_TESTS_${prop}"
   bktec_var="BUILDKITE_TEST_ENGINE_${prop}"
   if [[ -n "${!plugin_var:-}" ]]; then
     export "$bktec_var=${!plugin_var}"

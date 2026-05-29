@@ -5,7 +5,7 @@ setup() {
 }
 
 @test "adds variables to the environment file" {
-  export BUILDKITE_PLUGIN_TEST_ENGINE_TEST_RUNNER="choochoo"
+  export BUILDKITE_PLUGIN_TESTS_TEST_RUNNER="choochoo"
   export BUILDKITE_ENV_FILE=$(mktemp)
 
   run $PWD/hooks/environment
@@ -24,7 +24,7 @@ setup() {
 }
 
 @test "respects upload-results when set to false" {
-  export BUILDKITE_PLUGIN_TEST_ENGINE_UPLOAD_RESULTS="false"
+  export BUILDKITE_PLUGIN_TESTS_UPLOAD_RESULTS="false"
   export BUILDKITE_ENV_FILE=$(mktemp)
 
   run $PWD/hooks/environment
