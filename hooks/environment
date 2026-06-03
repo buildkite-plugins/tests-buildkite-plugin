@@ -42,6 +42,25 @@ for prop in "${PROPERTIES[@]}"; do
   fi
 done
 
+# Buildkite exposes array properties as indexed env vars (TAGS_0, TAGS_1, ...),
+# but a single string value is exposed without an index (TAGS). So we need to handle both.
+if [[ -n "${BUILDKITE_PLUGIN_TESTS_TAGS:-}" ]]; then
+  export "BUILDKITE_TEST_ENGINE_TAGS=${BUILDKITE_PLUGIN_TESTS_TAGS}"
+  exported_vars+=("BUILDKITE_TEST_ENGINE_TAGS")
+elif [[ -n "${BUILDKITE_PLUGIN_TESTS_TAGS_0:-}" ]]; then
+  declare -a tags=()
+  i=0
+  while true; do
+    plugin_var="BUILDKITE_PLUGIN_TESTS_TAGS_${i}"
+    [[ -z "${!plugin_var:-}" ]] && break
+    tags+=("${!plugin_var}")
+    i=$(( i + 1 ))
+  done
+  joined=$(IFS=','; echo "${tags[*]}")
+  export "BUILDKITE_TEST_ENGINE_TAGS=$joined"
+  exported_vars+=("BUILDKITE_TEST_ENGINE_TAGS")
+fi
+
 # TODO: 
 # Update docker and docker-compose plugins to propagate these env vars
 # so we don't have to write them to BUILDKITE_ENV_FILE here.

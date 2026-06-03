@@ -40,6 +40,12 @@ configuration:
       description: >-
         Upload test results to Test Engine. Default: true. Set to false if you use the test collectors for richer
         data collection, or if you want to handle the upload yourself.
+    tags:
+      type: array
+      description: >-
+        Tags to attach to the uploaded test results. Each tag is a key=value string (e.g. "env=production").
+      items:
+        type: string
 
     # Test runner
     test-runner:
