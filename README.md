@@ -40,12 +40,12 @@ steps:
 
 ```yaml
 steps:
-  - label: "pytest"
+  - label: "Run tests"
     command: bktec run
+    parallelism: 5
     plugins:
       - tests#v1.0.0:
           test-runner: pytest
-    parallelism: 4
 ```
 
 ### Go test
