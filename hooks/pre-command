@@ -195,11 +195,12 @@ ensure_suite() {
     echo "--- :buildkite: Creating Test Suite using OIDC token" >&2
     create_suite_status="$(create_suite "$org_token" "${BUILDKITE_PLUGIN_TESTS_SUITE_SLUG:-}")"
     if [[ "$create_suite_status" != "200" && "$create_suite_status" != "201" ]]; then
-      exit 1
+      echo "Warning: could not create Test Suite, proceeding — test results may not be uploaded" >&2
+    else
+      echo "Test Suite ready (HTTP ${create_suite_status})" >&2
     fi
-    echo "Test Suite ready (HTTP ${create_suite_status})" >&2
   else
-    exit 1
+    echo "Warning: could not confirm Test Suite exists, proceeding — test results may not be uploaded" >&2
   fi
   echo "$slug"
 }
