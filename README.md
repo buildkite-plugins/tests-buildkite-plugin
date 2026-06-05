@@ -194,6 +194,19 @@ Upload test results to Test Engine. Default: `true`. Set to `false` if you use t
 
 Requires bktec 2.7.0 or later.
 
+#### `tags` (optional, array of strings)
+
+Tags to attach to the uploaded test results. Each tag is a `key=value` string.
+
+```yaml
+plugins:
+  - tests#v1.0.0:
+      test-runner: rspec
+      tags:
+        - "language.version=3.3"
+        - "os=linux"
+```
+
 #### `debug-enabled` (optional, boolean)
 
 Enable verbose output.
