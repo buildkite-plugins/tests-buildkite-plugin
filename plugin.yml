@@ -31,14 +31,14 @@ configuration:
         Target architecture for the downloaded bktec binary (e.g. "amd64", "arm64"). Defaults to the host architecture.
         Useful when the host and the Docker container run different architectures.
 
-    # Test Engine
+    # Test suite
     suite-slug:
       type: string
-      description: Slug of the Test Engine suite to report results to. Defaults to the pipeline slug.
+      description: Slug of the test suite to report results to. Defaults to the pipeline slug.
     upload-results:
       type: boolean
       description: >-
-        Upload test results to Test Engine. Default: true. Set to false if you use the test collectors for richer
+        Upload test results to your test suite. Default: true. Set to false if you use the test collectors for richer
         data collection, or if you want to handle the upload yourself.
 
     # Test runner

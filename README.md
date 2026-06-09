@@ -190,7 +190,7 @@ Exit with an error if no tests are assigned to this node.
 
 #### `upload-results` (optional, boolean)
 
-Upload test results to Test Engine. Default: `true`. Set to `false` if you use the [test collectors](https://buildkite.com/docs/test-engine/test-collection/) for richer data collection, or if you want to handle the upload yourself.
+Upload test results to your test suite. Default: `true`. Set to `false` if you use the [test collectors](https://buildkite.com/docs/test-engine/test-collection/) for richer data collection, or if you want to handle the upload yourself.
 
 Requires bktec 2.7.0 or later.
 
