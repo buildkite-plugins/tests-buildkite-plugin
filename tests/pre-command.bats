@@ -88,6 +88,47 @@ setup() {
   unstub bktec
 }
 
+@test "continues with a warning when get_suite returns an unexpected status" {
+  export BUILDKITE_ENV_FILE=$(mktemp)
+  export BUILDKITE_ORGANIZATION_SLUG="myorg"
+  export BUILDKITE_PIPELINE_SLUG="mypipeline"
+
+  audience="https://buildkite.com/organizations/myorg/analytics/suites/mypipeline"
+
+  stub buildkite-agent \
+    "oidc request-token --audience ${audience} --lifetime 300 : echo faketoken"
+  stub curl \
+    "-s -w '\\n%{http_code}' -H 'Authorization: Bearer faketoken' 'https://api.buildkite.com/v2/analytics/organizations/myorg/suites/mypipeline' : echo '{}' ; echo 500"
+
+  export BUILDKITE_PLUGIN_TESTS_INSTALL_CLIENT=false
+
+  run $PWD/hooks/pre-command
+  assert_success
+  assert_output --partial "Warning: could not confirm Test Suite exists"
+}
+
+@test "continues with a warning when create_suite returns an unexpected status" {
+  export BUILDKITE_ENV_FILE=$(mktemp)
+  export BUILDKITE_ORGANIZATION_SLUG="myorg"
+  export BUILDKITE_PIPELINE_SLUG="mypipeline"
+
+  suite_audience="https://buildkite.com/organizations/myorg/analytics/suites/mypipeline"
+  org_audience="https://buildkite.com/myorg"
+
+  stub buildkite-agent \
+    "oidc request-token --audience ${suite_audience} --lifetime 300 : echo suitetoken" \
+    "oidc request-token --audience ${org_audience} --lifetime 300 : echo orgtoken"
+  stub curl \
+    "-s -w '\\n%{http_code}' -H 'Authorization: Bearer suitetoken' 'https://api.buildkite.com/v2/analytics/organizations/myorg/suites/mypipeline' : echo '{}' ; echo 404" \
+    "-s -w '\\n%{http_code}' -X POST -H 'Authorization: Bearer orgtoken' -H 'Content-Type: application/json' --data '{}' 'https://api.buildkite.com/v2/analytics/organizations/myorg/suites/create_from_pipeline' : echo '{}' ; echo 500"
+
+  export BUILDKITE_PLUGIN_TESTS_INSTALL_CLIENT=false
+
+  run $PWD/hooks/pre-command
+  assert_success
+  assert_output --partial "Warning: could not create Test Suite"
+}
+
 @test "downloads bktec when requested" {
   export BUILDKITE_ENV_FILE=$(mktemp)
   export BUILDKITE_ORGANIZATION_SLUG="myorg" 
