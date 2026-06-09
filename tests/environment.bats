@@ -33,6 +33,16 @@ setup() {
   assert_output "BUILDKITE_TEST_ENGINE_UPLOAD_RESULTS=false"
 }
 
+@test "does not clobber a manually-set BUILDKITE_TEST_ENGINE_UPLOAD_RESULTS" {
+  export BUILDKITE_TEST_ENGINE_UPLOAD_RESULTS="false"
+  export BUILDKITE_ENV_FILE=$(mktemp)
+
+  run $PWD/hooks/environment
+
+  run cat ${BUILDKITE_ENV_FILE}
+  refute_output --partial "BUILDKITE_TEST_ENGINE_UPLOAD_RESULTS=true"
+}
+
 @test "passes a tag string directly to bktec" {
   export BUILDKITE_PLUGIN_TESTS_TAGS="language.version=3.3"
   export BUILDKITE_ENV_FILE=$(mktemp)
