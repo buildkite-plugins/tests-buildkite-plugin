@@ -1,5 +1,5 @@
 name: Tests
-description: Sets up your pipeline to run tests with Buildkite Test Engine
+description: Automatically parallelise and run your test suites on Buildkite
 author: https://github.com/buildkite
 requirements:
   - curl
