@@ -200,7 +200,7 @@ ensure_suite() {
       echo "Test Suite ready (HTTP ${create_suite_status})" >&2
     fi
   else
-    echo "Warning: could not confirm Test Suite exists, proceeding — test results may not be uploaded" >&2
+    echo "⚠️ Warning: could not confirm Test Suite exists, proceeding — test results may not be uploaded" >&2
   fi
   echo "$slug"
 }
