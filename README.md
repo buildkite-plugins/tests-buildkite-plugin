@@ -1,8 +1,8 @@
 # Tests Buildkite Plugin [![Build status](https://badge.buildkite.com/74fa0467f2882c02503bf4fea1fec74d1ce5830e47307651bb.svg?branch=main)](https://buildkite.com/buildkite/plugins-tests)
 
-A [Buildkite plugin](https://buildkite.com/docs/agent/v3/plugins) that sets up your pipeline to run tests with [Buildkite Test Engine](https://buildkite.com/docs/test-engine). The plugin downloads the [Test Engine Client (bktec)](https://github.com/buildkite/test-engine-client), requests an [OIDC](https://buildkite.com/docs/pipelines/security/oidc) token, ensures your [test suite](https://buildkite.com/docs/test-engine/test-suites) exists, and exports the environment variables that bktec expects.
+The Buildkite plugin for automatically parallelising and running your test suites on Buildkite. It splits your tests across parallel jobs so they finish faster, and handles all the setup for you. The splitting and running is done by [bktec](https://github.com/buildkite/test-engine-client), the client this plugin installs and configures for you.
 
-The plugin removes the need to manually install bktec, set up authentication, or create your test suite before running tests. The plugin works with every test runner that bktec supports, including RSpec, Jest, pytest, and Go test.
+Behind the scenes, the plugin downloads bktec, requests an [OIDC](https://buildkite.com/docs/pipelines/security/oidc) token, ensures your [test suite](https://buildkite.com/docs/test-engine/test-suites) exists, and exports the environment variables bktec expects, so you do not have to install bktec, set up authentication, or create your test suite by hand. It works with every test runner that bktec supports, including RSpec, Jest, pytest, and Go test.
 
 ## Example
 
@@ -190,7 +190,7 @@ Exit with an error if no tests are assigned to this node.
 
 #### `upload-results` (optional, boolean)
 
-Upload test results to Test Engine. Default: `true`. Set to `false` if you use the [test collectors](https://buildkite.com/docs/test-engine/test-collection/) for richer data collection, or if you want to handle the upload yourself.
+Upload test results to your test suite. Default: `true`. Set to `false` if you use the [test collectors](https://buildkite.com/docs/test-engine/test-collection/) for richer data collection, or if you want to handle the upload yourself.
 
 Requires bktec 2.7.0 or later.
 
