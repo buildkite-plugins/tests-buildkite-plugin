@@ -161,7 +161,11 @@ get_suite() {
 create_suite() {
   local token="$1" slug="${2:-}" data response status body
   if [[ -n "$slug" ]]; then
-    data="{\"slug\":\"${slug}\"}"
+    if jq_available; then
+      data="$(jq -n --arg slug "$slug" '{slug: $slug}')"
+    else
+      data="{\"slug\":\"${slug}\"}"
+    fi
   else
     data="{}"
   fi
