@@ -13,6 +13,10 @@ BKTEC_APP_URL="${BKTEC_API_URL/:\/\/api./:\/\/}"
 
 UPLOAD_MIN_VERSION="2.7.0"
 
+jq_available() {
+  which jq >/dev/null 2>&1
+}
+
 version_lt() {
   local IFS=.
   local i va=($1) vb=($2)
@@ -79,9 +83,14 @@ download_bktec() {
   else
     echo "Fetching latest bktec version..." >&2
     local github_api_url="https://api.github.com/repos/buildkite/test-engine-client/releases/latest"
-    version="$(curl -sf ${GITHUB_TOKEN:+-H "Authorization: Bearer ${GITHUB_TOKEN}"} "$github_api_url" \
-      | jq -r '.tag_name | ltrimstr("v")')" \
-      || version="$(curl -sf "$github_api_url" | jq -r '.tag_name | ltrimstr("v")')"
+    local response
+    response="$(curl -sf ${GITHUB_TOKEN:+-H "Authorization: Bearer ${GITHUB_TOKEN}"} "$github_api_url" \
+      || curl -sf "$github_api_url")"
+    if jq_available; then
+      version="$(echo "$response" | jq -r '.tag_name | ltrimstr("v")')"
+    else
+      version="$(echo "$response" | sed -n 's/.*"tag_name" *: *"v*\([^"]*\)".*/\1/p')"
+    fi
   fi
   local bin="${dir}/${version}/${os}_${arch}/bktec"
   if [[ -x "$bin" ]]; then
@@ -133,7 +142,11 @@ get_suite() {
   body="${response%$'\n'*}"
   if [[ "$status" != "200" && "$status" != "404" && "$status" != "401" ]]; then
     local message
-    message="$(jq -r '.message // empty' <<< "$body" 2>/dev/null)" || true
+    if jq_available; then
+      message="$(jq -r '.message // empty' <<< "$body" 2>/dev/null)" || true
+    else
+      message="$(echo "$body" | sed -n 's/.*"message" *: *"\([^"]*\)".*/\1/p' 2>/dev/null)" || true
+    fi
     echo "Failed to get Test Suite (HTTP ${status}): ${message:-$body}" >&2
   fi
   echo "$status"
@@ -148,7 +161,7 @@ get_suite() {
 create_suite() {
   local token="$1" slug="${2:-}" data response status body
   if [[ -n "$slug" ]]; then
-    data="$(jq -n --arg slug "$slug" '{slug: $slug}')"
+    data="{\"slug\":\"${slug}\"}"
   else
     data="{}"
   fi
@@ -162,7 +175,11 @@ create_suite() {
   body="${response%$'\n'*}"
   if [[ "$status" != "200" && "$status" != "201" ]]; then
     local message
-    message="$(jq -r '.message // empty' <<< "$body" 2>/dev/null)" || true
+    if jq_available; then
+      message="$(jq -r '.message // empty' <<< "$body" 2>/dev/null)" || true
+    else
+      message="$(echo "$body" | sed -n 's/.*"message" *: *"\([^"]*\)".*/\1/p' 2>/dev/null)" || true
+    fi
     echo "Failed to create Test Suite (HTTP ${status}): ${message:-$body}" >&2
   fi
   echo "$status"

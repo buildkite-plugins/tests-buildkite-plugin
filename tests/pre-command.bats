@@ -129,10 +129,32 @@ setup() {
   assert_output --partial "Warning: could not create Test Suite"
 }
 
+@test "downloads bktec using sed fallback when jq is unavailable" {
+  export BUILDKITE_ENV_FILE=$(mktemp)
+  export BUILDKITE_ORGANIZATION_SLUG="myorg"
+  export BUILDKITE_PIPELINE_SLUG="mypipeline"
+  export BUILDKITE_PLUGIN_TESTS_INSTALL_CLIENT=true
+
+  audience="https://buildkite.com/organizations/myorg/analytics/suites/mypipeline"
+
+  stub buildkite-agent "oidc request-token --audience ${audience} --lifetime 300 : echo faketoken"
+  stub curl \
+    "-s -w '\\n%{http_code}' -H 'Authorization: Bearer faketoken' 'https://api.buildkite.com/v2/analytics/organizations/myorg/suites/mypipeline' : echo '{}' ; echo 200" \
+    "-sf https://api.github.com/repos/buildkite/test-engine-client/releases/latest : cat $PWD/tests/fixtures/bktec-releases.json"
+
+  jq_available() { return 1; }
+  export -f jq_available
+  run $PWD/hooks/pre-command
+  unset -f jq_available
+
+  assert_success
+  assert_output --partial "bktec 2.6.0 (linux/amd64)"
+}
+
 @test "downloads bktec when requested" {
   export BUILDKITE_ENV_FILE=$(mktemp)
-  export BUILDKITE_ORGANIZATION_SLUG="myorg" 
-  export BUILDKITE_PIPELINE_SLUG="mypipeline" 
+  export BUILDKITE_ORGANIZATION_SLUG="myorg"
+  export BUILDKITE_PIPELINE_SLUG="mypipeline"
 
   audience="https://buildkite.com/organizations/myorg/analytics/suites/mypipeline"
   tmpdir="/tmp/buildkite-plugin-test-engine/2.6.0/linux_amd64"
@@ -154,3 +176,4 @@ setup() {
   run "${BUILDKITE_TEST_ENGINE_CLIENT_PATH}"
   assert_output "fake bktec"
 }
+
