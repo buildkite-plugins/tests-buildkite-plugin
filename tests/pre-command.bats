@@ -136,15 +136,20 @@ setup() {
   export BUILDKITE_PLUGIN_TESTS_INSTALL_CLIENT=true
 
   audience="https://buildkite.com/organizations/myorg/analytics/suites/mypipeline"
+  tmpdir="/tmp/bktec-sed-test/buildkite-plugin-test-engine/2.6.0/linux_amd64"
+  tmpfile="${tmpdir}/bktec.1234567"
 
   stub buildkite-agent "oidc request-token --audience ${audience} --lifetime 300 : echo faketoken"
+  stub mktemp "${tmpdir}/bktec.XXXXXXX : echo ${tmpfile}"
   stub curl \
     "-s -w '\\n%{http_code}' -H 'Authorization: Bearer faketoken' 'https://api.buildkite.com/v2/analytics/organizations/myorg/suites/mypipeline' : echo '{}' ; echo 200" \
-    "-sf https://api.github.com/repos/buildkite/test-engine-client/releases/latest : cat $PWD/tests/fixtures/bktec-releases.json"
+    "-sf https://api.github.com/repos/buildkite/test-engine-client/releases/latest : cat $PWD/tests/fixtures/bktec-releases.json" \
+    "-fL --progress-bar https://github.com/buildkite/test-engine-client/releases/download/v2.6.0/bktec_2.6.0_linux_amd64 -o ${tmpfile} : cp $PWD/tests/fixtures/bktec_2.6.0 ${tmpfile}" \
+    "-sfL https://github.com/buildkite/test-engine-client/releases/download/v2.6.0/bktec_2.6.0_checksums.txt : cat $PWD/tests/fixtures/bktec_2.6.0_checksums.txt"
 
   jq_available() { return 1; }
   export -f jq_available
-  run $PWD/hooks/pre-command
+  run env TMPDIR="/tmp/bktec-sed-test" $PWD/hooks/pre-command
   unset -f jq_available
 
   assert_success

@@ -13,9 +13,11 @@ BKTEC_APP_URL="${BKTEC_API_URL/:\/\/api./:\/\/}"
 
 UPLOAD_MIN_VERSION="2.7.0"
 
-jq_available() {
-  which jq >/dev/null 2>&1
-}
+if ! declare -F jq_available >/dev/null 2>&1; then
+  jq_available() {
+    command -v jq >/dev/null 2>&1
+  }
+fi
 
 version_lt() {
   local IFS=.
