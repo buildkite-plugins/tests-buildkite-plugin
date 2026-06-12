@@ -149,6 +149,7 @@ setup() {
 
   jq_available() { return 1; }
   export -f jq_available
+  # Use an isolated TMPDIR so the downloaded binary doesn't collide with test 16's cache
   run env TMPDIR="/tmp/bktec-sed-test" $PWD/hooks/pre-command
   unset -f jq_available
 
