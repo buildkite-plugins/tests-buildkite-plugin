@@ -156,6 +156,25 @@ setup() {
   assert_output --partial "bktec 2.6.0 (linux/amd64)"
 }
 
+@test "fails when latest bktec version cannot be parsed from GitHub API response" {
+  export BUILDKITE_ENV_FILE=$(mktemp)
+  export BUILDKITE_ORGANIZATION_SLUG="myorg"
+  export BUILDKITE_PIPELINE_SLUG="mypipeline"
+  export BUILDKITE_PLUGIN_TESTS_INSTALL_CLIENT=true
+
+  audience="https://buildkite.com/organizations/myorg/analytics/suites/mypipeline"
+
+  stub buildkite-agent "oidc request-token --audience ${audience} --lifetime 300 : echo faketoken"
+  stub curl \
+    "-s -w '\\n%{http_code}' -H 'Authorization: Bearer faketoken' 'https://api.buildkite.com/v2/analytics/organizations/myorg/suites/mypipeline' : echo '{}' ; echo 200" \
+    "-sf https://api.github.com/repos/buildkite/test-engine-client/releases/latest : echo '{}'"
+
+  run $PWD/hooks/pre-command
+
+  assert_failure
+  assert_output --partial "Error: could not parse latest bktec version from GitHub API response"
+}
+
 @test "downloads bktec when requested" {
   export BUILDKITE_ENV_FILE=$(mktemp)
   export BUILDKITE_ORGANIZATION_SLUG="myorg"

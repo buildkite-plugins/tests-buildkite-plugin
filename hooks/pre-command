@@ -93,6 +93,10 @@ download_bktec() {
     else
       version="$(echo "$response" | sed -n 's/.*"tag_name" *: *"v*\([^"]*\)".*/\1/p')"
     fi
+    if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+      echo "Error: could not parse latest bktec version from GitHub API response" >&2
+      return 1
+    fi
   fi
   local bin="${dir}/${version}/${os}_${arch}/bktec"
   if [[ -x "$bin" ]]; then
