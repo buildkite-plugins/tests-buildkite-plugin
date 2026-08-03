@@ -4,6 +4,46 @@ The Buildkite plugin for automatically parallelising and running your test suite
 
 Behind the scenes, the plugin downloads bktec, requests an [OIDC](https://buildkite.com/docs/pipelines/security/oidc) token, ensures your [test suite](https://buildkite.com/docs/test-engine/test-suites) exists, and exports the environment variables bktec expects, so you do not have to install bktec, set up authentication, or create your test suite by hand. It works with every test runner that bktec supports, including RSpec, Jest, pytest, and Go test.
 
+## How it works
+
+```mermaid
+sequenceDiagram
+    participant Pipeline as Pipeline YAML
+    participant Agent as Buildkite Agent
+    participant Plugin as Tests Plugin
+    participant OIDC as Buildkite OIDC
+    participant API as Test Engine API
+    participant GH as GitHub Releases
+    participant bktec
+    participant Runner as Test Runner
+
+    Pipeline->>Agent: step with tests plugin and bktec run command
+
+    Note over Agent,Plugin: environment hook
+    Plugin->>Plugin: map plugin options to BUILDKITE_TEST_ENGINE_* env vars
+
+    Note over Agent,Plugin: pre-command hook
+    Plugin->>OIDC: request suite-scoped OIDC token
+    OIDC-->>Plugin: token
+    Plugin->>API: GET /suites/{slug}
+    alt suite does not exist (404 or 401)
+        Plugin->>OIDC: request org-scoped OIDC token
+        OIDC-->>Plugin: org token
+        Plugin->>API: POST /suites/create_from_pipeline
+        API-->>Plugin: suite created
+    end
+    Plugin->>GH: download bktec binary (if install-client: true)
+    GH-->>Plugin: verified binary → added to PATH
+
+    Note over Agent,bktec: command step
+    Agent->>bktec: bktec run
+    bktec->>API: fetch test plan for this node
+    API-->>bktec: assigned test files
+    bktec->>Runner: run assigned tests
+    Runner-->>bktec: results
+    bktec->>API: upload results
+```
+
 ## Example
 
 ```yaml
