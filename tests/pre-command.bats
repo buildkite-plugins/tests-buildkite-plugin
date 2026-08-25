@@ -129,6 +129,32 @@ setup() {
   assert_output --partial "Warning: could not create Test Suite"
 }
 
+@test "downloads a pinned bktec prerelease" {
+  export BUILDKITE_ENV_FILE=$(mktemp)
+  export BUILDKITE_ORGANIZATION_SLUG="myorg"
+  export BUILDKITE_PIPELINE_SLUG="mypipeline"
+  export BUILDKITE_PLUGIN_TESTS_CLIENT_VERSION="v3.1.0-rc.1"
+
+  audience="https://buildkite.com/organizations/myorg/analytics/suites/mypipeline"
+  tmpdir="/tmp/buildkite-plugin-test-engine/3.1.0-rc.1/linux_amd64"
+  tmpfile="${tmpdir}/bktec.1234567"
+
+  stub buildkite-agent "oidc request-token --audience ${audience} --lifetime 300 : echo faketoken"
+  stub mktemp "${tmpdir}/bktec.XXXXXXX : echo ${tmpfile}"
+  stub curl \
+    "-s -w '\\n%{http_code}' -H 'Authorization: Bearer faketoken' 'https://api.buildkite.com/v2/analytics/organizations/myorg/suites/mypipeline' : echo '{}' ; echo 200" \
+    "-fL --progress-bar https://github.com/buildkite/test-engine-client/releases/download/v3.1.0-rc.1/bktec_3.1.0-rc.1_linux_amd64 -o ${tmpfile} : cp $PWD/tests/fixtures/bktec_2.6.0 ${tmpfile}" \
+    "-sfL https://github.com/buildkite/test-engine-client/releases/download/v3.1.0-rc.1/bktec_3.1.0-rc.1_checksums.txt : cat $PWD/tests/fixtures/bktec_3.1.0-rc.1_checksums.txt"
+  export BUILDKITE_PLUGIN_TESTS_INSTALL_CLIENT=true
+
+  source $PWD/hooks/pre-command
+
+  assert_equal "${BUILDKITE_TEST_ENGINE_CLIENT_PATH}" /tmp/buildkite-plugin-test-engine/3.1.0-rc.1/linux_amd64/bktec
+
+  run "${BUILDKITE_TEST_ENGINE_CLIENT_PATH}"
+  assert_output "fake bktec"
+}
+
 @test "downloads bktec when requested" {
   export BUILDKITE_ENV_FILE=$(mktemp)
   export BUILDKITE_ORGANIZATION_SLUG="myorg" 

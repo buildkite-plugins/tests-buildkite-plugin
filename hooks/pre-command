@@ -14,14 +14,19 @@ BKTEC_APP_URL="${BKTEC_API_URL/:\/\/api./:\/\/}"
 UPLOAD_MIN_VERSION="2.7.0"
 
 version_lt() {
+  local a="${1#v}" b="${2#v}"
+  local a_core="${a%%-*}" b_core="${b%%-*}"
   local IFS=.
-  local i va=($1) vb=($2)
-  [[ "$1" == "$2" ]] && return 1
+  local i va vb
+  read -r -a va <<< "$a_core"
+  read -r -a vb <<< "$b_core"
+  [[ "$a" == "$b" ]] && return 1
   for ((i=0; i<3; i++)); do
     (( ${va[i]:-0} < ${vb[i]:-0} )) && return 0
     (( ${va[i]:-0} > ${vb[i]:-0} )) && return 1
   done
-  return 1
+  # A prerelease of the minimum version precedes its stable release.
+  [[ "$a" == *-* && "$b" != *-* ]]
 }
 
 if [[ -n "${BUILDKITE_PLUGIN_TESTS_CLIENT_VERSION:-}" ]] \
@@ -72,10 +77,11 @@ download_bktec() {
   esac
   version="${BUILDKITE_PLUGIN_TESTS_CLIENT_VERSION:-}"
   if [[ -n "$version" ]]; then
-    if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-      echo "Error: invalid bktec version '${version}' — expected format: MAJOR.MINOR.PATCH (e.g. 2.4.0)" >&2
+    if [[ ! "$version" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$ ]]; then
+      echo "Error: invalid bktec version '${version}' — expected format: [v]MAJOR.MINOR.PATCH[-PRERELEASE] (e.g. 2.4.0 or v3.1.0-rc.1)" >&2
       return 1
     fi
+    version="${version#v}"
   else
     echo "Fetching latest bktec version..." >&2
     local github_api_url="https://api.github.com/repos/buildkite/test-engine-client/releases/latest"

@@ -269,7 +269,7 @@ Target architecture for the downloaded binary, for example `amd64` or `arm64`. D
 
 #### `client-version` (optional, string)
 
-bktec version to download, for example `2.4.0`. Defaults to the latest release.
+bktec version to download, for example `2.4.0` or `3.1.0-rc.1`. An optional leading `v` is accepted. Defaults to the latest release.
 
 #### `oidc-lifetime` (optional, integer)
 
