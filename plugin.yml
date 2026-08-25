@@ -19,7 +19,7 @@ configuration:
     client-version:
       type: string
       description: >-
-        Target version of bktec to download (e.g. "2.4.0"). Defaults to the latest release.
+        Target version of bktec to download (e.g. "2.4.0" or "v3.1.0-rc.1"). Defaults to the latest release.
     client-os:
       type: string
       description: >-
