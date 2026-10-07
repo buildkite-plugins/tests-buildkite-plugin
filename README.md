@@ -135,7 +135,7 @@ steps:
 
 ### Manual test selection
 
-To run only the tests you choose, such as the specs changed on a pull request, set `manual-selection-command` to a command that prints the tests to run, one per line. The plugin runs it before the step's command and exports its output as `BUILDKITE_TEST_ENGINE_SELECTION_SELECTORS`. Pass that to `bktec plan` with `--selection-param`; bktec does not read selection parameters from the environment (see [Unsupported bktec flags](#unsupported-bktec-flags)). Requires bktec 3.2.1 or later.
+To run only the tests you choose, set `manual-selection-command` to a command that prints them, one per line. The plugin exports its output as `BUILDKITE_TEST_ENGINE_SELECTION_SELECTORS` for you to pass to `bktec plan` with `--selection-param`. Requires bktec 3.2.1 or later.
 
 ```yaml
 steps:
@@ -153,36 +153,10 @@ steps:
           manual-selection-command: .buildkite/select-tests.sh
 ```
 
-`.buildkite/select-tests.sh` prints the spec files added or changed on the branch:
+Here `select-tests.sh` might print the changed specs with `git diff --name-only origin/main...HEAD -- '*_spec.rb'`, and `rspec-template.yml` is the run step from [Dynamic parallelism](#dynamic-parallelism) with `depends_on: select-tests`.
 
-```bash
-#!/usr/bin/env bash
-set -euo pipefail
-
-base_branch="${BUILDKITE_PULL_REQUEST_BASE_BRANCH:-main}"
-git fetch --quiet origin "${base_branch}"
-git diff --name-only --diff-filter=d --relative "origin/${base_branch}...HEAD" -- '*_spec.rb'
-```
-
-The pipeline template at `.buildkite/rspec-template.yml` runs the selected tests. The plan already has the selection applied, so the run step doesn't need the selection options:
-
-```yaml
-steps:
-  - label: "RSpec"
-    depends_on: select-tests
-    command: bktec run --plan-identifier ${BUILDKITE_TEST_ENGINE_PLAN_IDENTIFIER}
-    parallelism: ${BUILDKITE_TEST_ENGINE_PARALLELISM}
-    plugins:
-      - tests#v1.0.1:
-          test-runner: rspec
-          result-path: tmp/rspec-result.json
-```
-
-Use `$$` so the variable is expanded when the step runs, not when the pipeline is uploaded. Things to know:
-
-- The step fails if `manual-selection-command` fails or prints no tests. Limit the step to builds that have changes to select from, for example with `if: build.pull_request.id != null`.
-- If none of the listed tests match a test bktec discovers, the step fails. Set `fail-on-no-tests: false` to pass instead. List paths relative to where bktec runs, without the `location-prefix`.
-- Run the selection step on the agent rather than in a Docker container: `BUILDKITE_TEST_ENGINE_SELECTION_SELECTORS` has one test per line, so it can't be propagated to containers. Most runners discover tests from a file pattern, which works without the test runtime installed. The `gotest` runner and `split-by-example` call the test runner to discover tests, so they need it installed on the agent.
+- The step fails if the command fails or prints no tests, so limit it to builds with changes, as the `if:` does above.
+- Run the step on the agent, not in Docker: the selectors span multiple lines, so they can't be propagated to a container.
 
 ### Docker
 
@@ -324,7 +298,7 @@ bktec version to download, for example `2.4.0` or `3.1.0-rc.1`. An optional lead
 
 #### `manual-selection-command` (optional, string)
 
-Command that prints the tests to run, one per line, for manual test selection. Runs before the step's command and exports its output as `BUILDKITE_TEST_ENGINE_SELECTION_SELECTORS`, for use with `--selection-param`. Requires bktec 3.2.1 or later. The step fails if the command fails or prints no tests. See [Manual test selection](#manual-test-selection).
+Command that prints the tests to run, one per line. Its output is exported as `BUILDKITE_TEST_ENGINE_SELECTION_SELECTORS`. See [Manual test selection](#manual-test-selection).
 
 #### `oidc-lifetime` (optional, integer)
 
