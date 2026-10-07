@@ -180,3 +180,89 @@ setup() {
   run "${BUILDKITE_TEST_ENGINE_CLIENT_PATH}"
   assert_output "fake bktec"
 }
+
+@test "exports the tests printed by manual-selection-command" {
+  export BUILDKITE_ENV_FILE=$(mktemp)
+  export BUILDKITE_ORGANIZATION_SLUG="myorg"
+  export BUILDKITE_PIPELINE_SLUG="mypipeline"
+  export BUILDKITE_PLUGIN_TESTS_INSTALL_CLIENT=false
+  export BUILDKITE_PLUGIN_TESTS_MANUAL_SELECTION_COMMAND="printf 'spec/a_spec.rb\nspec/b_spec.rb\n'"
+
+  audience="https://buildkite.com/organizations/myorg/analytics/suites/mypipeline"
+
+  stub buildkite-agent "oidc request-token --audience ${audience} --lifetime 300 : echo faketoken"
+  stub curl \
+    "-s -w '\\n%{http_code}' -H 'Authorization: Bearer faketoken' 'https://api.buildkite.com/v2/analytics/organizations/myorg/suites/mypipeline' : echo '{}' ; echo 200"
+
+  source $PWD/hooks/pre-command 2>/dev/null
+
+  assert_equal "${BUILDKITE_TEST_ENGINE_SELECTION_SELECTORS}" $'spec/a_spec.rb\nspec/b_spec.rb'
+  run cat "${BUILDKITE_ENV_FILE}"
+  refute_output --partial "BUILDKITE_TEST_ENGINE_SELECTION_SELECTORS"
+}
+
+@test "fails when manual-selection-command fails" {
+  export BUILDKITE_ENV_FILE=$(mktemp)
+  export BUILDKITE_ORGANIZATION_SLUG="myorg"
+  export BUILDKITE_PIPELINE_SLUG="mypipeline"
+  export BUILDKITE_PLUGIN_TESTS_INSTALL_CLIENT=false
+  export BUILDKITE_PLUGIN_TESTS_MANUAL_SELECTION_COMMAND="echo spec/a_spec.rb; exit 3"
+
+  audience="https://buildkite.com/organizations/myorg/analytics/suites/mypipeline"
+
+  stub buildkite-agent "oidc request-token --audience ${audience} --lifetime 300 : echo faketoken"
+  stub curl \
+    "-s -w '\\n%{http_code}' -H 'Authorization: Bearer faketoken' 'https://api.buildkite.com/v2/analytics/organizations/myorg/suites/mypipeline' : echo '{}' ; echo 200"
+
+  run $PWD/hooks/pre-command
+  assert_failure
+  assert_output --partial "Error: manual-selection-command failed with exit status 3"
+}
+
+@test "fails when manual-selection-command prints no tests" {
+  export BUILDKITE_ENV_FILE=$(mktemp)
+  export BUILDKITE_ORGANIZATION_SLUG="myorg"
+  export BUILDKITE_PIPELINE_SLUG="mypipeline"
+  export BUILDKITE_PLUGIN_TESTS_INSTALL_CLIENT=false
+  export BUILDKITE_PLUGIN_TESTS_MANUAL_SELECTION_COMMAND="printf '\n  \n'"
+
+  audience="https://buildkite.com/organizations/myorg/analytics/suites/mypipeline"
+
+  stub buildkite-agent "oidc request-token --audience ${audience} --lifetime 300 : echo faketoken"
+  stub curl \
+    "-s -w '\\n%{http_code}' -H 'Authorization: Bearer faketoken' 'https://api.buildkite.com/v2/analytics/organizations/myorg/suites/mypipeline' : echo '{}' ; echo 200"
+
+  run $PWD/hooks/pre-command
+  assert_failure
+  assert_output --partial "Error: manual-selection-command printed no tests to run"
+}
+
+@test "fails when pinned bktec version is too old for manual test selection" {
+  export BUILDKITE_PLUGIN_TESTS_CLIENT_VERSION=3.2.0
+  export BUILDKITE_PLUGIN_TESTS_MANUAL_SELECTION_COMMAND="echo spec/a_spec.rb"
+
+  run $PWD/hooks/pre-command
+  assert_failure
+  assert_output --partial "Error: bktec 3.2.0 does not support manual test selection"
+}
+
+@test "warns when existing bktec on PATH is too old for manual test selection" {
+  export BUILDKITE_ENV_FILE=$(mktemp)
+  export BUILDKITE_ORGANIZATION_SLUG="myorg"
+  export BUILDKITE_PIPELINE_SLUG="mypipeline"
+  export BUILDKITE_PLUGIN_TESTS_MANUAL_SELECTION_COMMAND="echo spec/a_spec.rb"
+
+  audience="https://buildkite.com/organizations/myorg/analytics/suites/mypipeline"
+
+  stub buildkite-agent "oidc request-token --audience ${audience} --lifetime 300 : echo faketoken"
+  stub curl \
+    "-s -w '\\n%{http_code}' -H 'Authorization: Bearer faketoken' 'https://api.buildkite.com/v2/analytics/organizations/myorg/suites/mypipeline' : echo '{}' ; echo 200"
+  stub bktec \
+    "--version : echo 'bktec version 3.2.0'"
+
+  run $PWD/hooks/pre-command
+  assert_success
+  assert_output --partial "Warning: bktec 3.2.0 does not support manual test selection"
+
+  unstub bktec
+}

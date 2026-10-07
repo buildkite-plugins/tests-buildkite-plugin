@@ -82,3 +82,13 @@ setup() {
   run cat ${BUILDKITE_ENV_FILE}
   refute_line --partial "BUILDKITE_TEST_ENGINE_TAGS"
 }
+
+@test "manual-selection-command sets the manual selection strategy" {
+  export BUILDKITE_PLUGIN_TESTS_MANUAL_SELECTION_COMMAND=".buildkite/select-tests.sh"
+  export BUILDKITE_ENV_FILE=$(mktemp)
+
+  run $PWD/hooks/environment
+
+  run cat ${BUILDKITE_ENV_FILE}
+  assert_line "BUILDKITE_TEST_ENGINE_SELECTION_STRATEGY=manual"
+}

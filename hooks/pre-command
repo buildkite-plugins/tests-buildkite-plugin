@@ -12,6 +12,8 @@ BKTEC_API_URL="${BUILDKITE_TEST_ENGINE_BASE_URL:-https://api.buildkite.com}"
 BKTEC_APP_URL="${BKTEC_API_URL/:\/\/api./:\/\/}"
 
 UPLOAD_MIN_VERSION="2.7.0"
+# Manual selection with the selectors param, and failing when listed selectors match no tests.
+SELECTION_MIN_VERSION="3.2.1"
 
 version_lt() {
   local a="${1#v}" b="${2#v}"
@@ -33,6 +35,12 @@ if [[ -n "${BUILDKITE_PLUGIN_TESTS_CLIENT_VERSION:-}" ]] \
   && [[ "${BUILDKITE_TEST_ENGINE_UPLOAD_RESULTS:-true}" =~ ^(true|on|1)$ ]] \
   && version_lt "${BUILDKITE_PLUGIN_TESTS_CLIENT_VERSION}" "${UPLOAD_MIN_VERSION}"; then
   echo "Error: bktec ${BUILDKITE_PLUGIN_TESTS_CLIENT_VERSION} does not support upload_results — minimum required version is ${UPLOAD_MIN_VERSION}. Upgrade to ${UPLOAD_MIN_VERSION}+, or set upload-results: false." >&2
+  exit 1
+fi
+
+if [[ -n "${BUILDKITE_PLUGIN_TESTS_MANUAL_SELECTION_COMMAND:-}" && -n "${BUILDKITE_PLUGIN_TESTS_CLIENT_VERSION:-}" ]] \
+  && version_lt "${BUILDKITE_PLUGIN_TESTS_CLIENT_VERSION}" "${SELECTION_MIN_VERSION}"; then
+  echo "Error: bktec ${BUILDKITE_PLUGIN_TESTS_CLIENT_VERSION} does not support manual test selection — minimum required version is ${SELECTION_MIN_VERSION}. Upgrade to ${SELECTION_MIN_VERSION}+, or remove manual-selection-command." >&2
   exit 1
 fi
 
@@ -244,11 +252,35 @@ if [[ "${BUILDKITE_PLUGIN_TESTS_INSTALL_CLIENT:-true}" =~ ^(true|on|1)$ ]]; then
     BKTEC_BIN="$(command -v bktec)"
     echo "bktec already installed at ${BKTEC_BIN}, skipping download" >&2
     export BUILDKITE_TEST_ENGINE_CLIENT_PATH="$BKTEC_BIN"
-    if [[ "${BUILDKITE_TEST_ENGINE_UPLOAD_RESULTS:-true}" =~ ^(true|on|1)$ ]]; then
-      existing_version="$(bktec --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)"
-      if [[ -n "$existing_version" ]] && version_lt "$existing_version" "${UPLOAD_MIN_VERSION}"; then
+    existing_version="$(bktec --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)"
+    if [[ -n "$existing_version" ]]; then
+      if [[ "${BUILDKITE_TEST_ENGINE_UPLOAD_RESULTS:-true}" =~ ^(true|on|1)$ ]] \
+        && version_lt "$existing_version" "${UPLOAD_MIN_VERSION}"; then
         echo "Warning: bktec ${existing_version} does not support upload_results (requires >= ${UPLOAD_MIN_VERSION}). Test results will not be uploaded." >&2
+      fi
+      if [[ -n "${BUILDKITE_PLUGIN_TESTS_MANUAL_SELECTION_COMMAND:-}" ]] \
+        && version_lt "$existing_version" "${SELECTION_MIN_VERSION}"; then
+        echo "Warning: bktec ${existing_version} does not support manual test selection (requires >= ${SELECTION_MIN_VERSION})." >&2
       fi
     fi
   fi
+fi
+
+if [[ -n "${BUILDKITE_PLUGIN_TESTS_MANUAL_SELECTION_COMMAND:-}" ]]; then
+  echo "--- :mag: Selecting tests" >&2
+  echo "Running: ${BUILDKITE_PLUGIN_TESTS_MANUAL_SELECTION_COMMAND}" >&2
+  selectors="$(bash -c "${BUILDKITE_PLUGIN_TESTS_MANUAL_SELECTION_COMMAND}")" || {
+    echo "Error: manual-selection-command failed with exit status $?" >&2
+    exit 1
+  }
+  # Manual selection needs at least one selector: the Test Engine API rejects an empty list.
+  if ! grep -q '[^[:space:]]' <<< "$selectors"; then
+    echo "Error: manual-selection-command printed no tests to run; manual selection needs at least one" >&2
+    exit 1
+  fi
+  echo "Selected $(grep -c '[^[:space:]]' <<< "$selectors") tests:" >&2
+  echo "$selectors" >&2
+  # Not written to BUILDKITE_ENV_FILE: it holds one selector per line, which
+  # that file's KEY=value lines can't represent.
+  export BUILDKITE_TEST_ENGINE_SELECTION_SELECTORS="$selectors"
 fi

@@ -65,6 +65,12 @@ elif [[ -n "${BUILDKITE_PLUGIN_TESTS_TAGS_0:-}" ]]; then
   exported_vars+=("BUILDKITE_TEST_ENGINE_TAGS")
 fi
 
+# pre-command runs manual-selection-command and exports the selectors.
+if [[ -n "${BUILDKITE_PLUGIN_TESTS_MANUAL_SELECTION_COMMAND:-}" ]]; then
+  export BUILDKITE_TEST_ENGINE_SELECTION_STRATEGY=manual
+  exported_vars+=("BUILDKITE_TEST_ENGINE_SELECTION_STRATEGY")
+fi
+
 # TODO: 
 # Update docker and docker-compose plugins to propagate these env vars
 # so we don't have to write them to BUILDKITE_ENV_FILE here.
