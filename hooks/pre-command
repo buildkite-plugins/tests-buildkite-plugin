@@ -9,7 +9,7 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BKTEC_API_URL="${BUILDKITE_TEST_ENGINE_BASE_URL:-https://api.buildkite.com}"
 # Audience claims use the app URL (org/suite pages), not the API URL,
 # so strip the "api." subdomain from the configured base.
-BKTEC_APP_URL="${BKTEC_API_URL/:\/\/api./:\/\/}"
+BKTEC_APP_URL="${BKTEC_API_URL/:\/\/api./://}"
 
 UPLOAD_MIN_VERSION="2.7.0"
 # Manual selection with the selectors param, and failing when listed selectors match no tests.
