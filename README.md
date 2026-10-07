@@ -135,16 +135,14 @@ steps:
 
 ### Manual test selection
 
-To run only the tests you choose, set `manual-selection-command` to a command that prints them, one per line. The plugin exports its output as `BUILDKITE_TEST_ENGINE_SELECTION_SELECTORS` for you to pass to `bktec plan` with `--selection-param`. Requires bktec 3.2.1 or later.
+To run only the tests you choose, set `manual-selection-command` to a command that prints them, one per line. The plugin exports its output as `BUILDKITE_TEST_ENGINE_SELECTION_SELECTORS`, which `bktec plan` and `bktec run` read as the tests to select. Requires bktec 3.3.0 or later.
 
 ```yaml
 steps:
   - label: "Select tests"
     key: select-tests
     if: build.pull_request.id != null
-    command: >-
-      bktec plan --selection-param "selectors=$$BUILDKITE_TEST_ENGINE_SELECTION_SELECTORS"
-      --pipeline-upload .buildkite/rspec-template.yml
+    command: bktec plan --pipeline-upload .buildkite/rspec-template.yml
     plugins:
       - tests#v1.0.1:
           test-runner: rspec
@@ -156,7 +154,7 @@ steps:
 Here `select-tests.sh` might print the changed specs with `git diff --name-only origin/main...HEAD -- '*_spec.rb'`, and `rspec-template.yml` is the run step from [Dynamic parallelism](#dynamic-parallelism) with `depends_on: select-tests`.
 
 - If the command prints no tests, the plan selects none and, with `max-parallelism` above 1, `bktec plan` uploads no run step. The step fails if the command fails.
-- Run the step on the agent, not in Docker: the selectors span multiple lines, so they can't be propagated to a container.
+- To run the step in Docker, list `BUILDKITE_TEST_ENGINE_SELECTION_SELECTORS` under the Docker plugin's `environment:`. `propagate-environment` doesn't pass it, because the selectors span multiple lines. Without it, bktec sends no selectors and the step fails.
 
 ### Docker
 
@@ -239,7 +237,7 @@ Prefix to prepend to test file paths when requesting a test plan.
 
 #### `selection-strategy` (optional, string)
 
-Test selection strategy for the test plan, for example `manual` or `random`. Pass the strategy's params with `--selection-param` in the step's `command:`. Defaults to `manual` when `manual-selection-command` is set, and must be `manual` if you set both. Requires bktec 3.2.0 or later.
+Test selection strategy for the test plan, for example `manual` or `random`. Pass the strategy's params with `--selection-param` in the step's `command:`; manual selection reads its selectors from [`manual-selection-command`](#manual-selection-command-optional-string). Defaults to `manual` when `manual-selection-command` is set, and must be `manual` if you set both. Requires bktec 3.2.0 or later.
 
 #### `max-parallelism` (optional, integer)
 
@@ -314,7 +312,7 @@ A small number of bktec flags cannot be set through environment variables, so th
 
 | Flag                | Command                    | Notes                                               |
 | ------------------- | -------------------------- | --------------------------------------------------- |
-| `--selection-param` | `run`, `plan`              | See [Manual test selection](#manual-test-selection) |
+| `--selection-param` | `run`, `plan`              | Params for strategies other than `manual`           |
 | `--metadata`        | `run`, `plan`              | Preview selection                                   |
 | `--json`            | `plan`                     | Print the plan as JSON to stdout                    |
 | `--pipeline-upload` | `plan`                     | Upload a follow-up pipeline step that runs the plan |

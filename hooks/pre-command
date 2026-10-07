@@ -12,8 +12,8 @@ BKTEC_API_URL="${BUILDKITE_TEST_ENGINE_BASE_URL:-https://api.buildkite.com}"
 BKTEC_APP_URL="${BKTEC_API_URL/:\/\/api./://}"
 
 UPLOAD_MIN_VERSION="2.7.0"
-# Manual selection with the selectors param, and failing when listed selectors match no tests.
-SELECTION_MIN_VERSION="3.2.1"
+# Manual selection that reads its selectors from BUILDKITE_TEST_ENGINE_SELECTION_SELECTORS.
+SELECTION_MIN_VERSION="3.3.0"
 
 version_lt() {
   local a="${1#v}" b="${2#v}"

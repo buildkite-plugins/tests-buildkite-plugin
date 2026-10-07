@@ -240,12 +240,12 @@ setup() {
 }
 
 @test "fails when pinned bktec version is too old for manual test selection" {
-  export BUILDKITE_PLUGIN_TESTS_CLIENT_VERSION=3.2.0
+  export BUILDKITE_PLUGIN_TESTS_CLIENT_VERSION=3.2.1
   export BUILDKITE_PLUGIN_TESTS_MANUAL_SELECTION_COMMAND="echo spec/a_spec.rb"
 
   run $PWD/hooks/pre-command
   assert_failure
-  assert_output --partial "Error: bktec 3.2.0 does not support manual test selection"
+  assert_output --partial "Error: bktec 3.2.1 does not support manual test selection"
 }
 
 @test "warns when existing bktec on PATH is too old for manual test selection" {
@@ -260,11 +260,11 @@ setup() {
   stub curl \
     "-s -w '\\n%{http_code}' -H 'Authorization: Bearer faketoken' 'https://api.buildkite.com/v2/analytics/organizations/myorg/suites/mypipeline' : echo '{}' ; echo 200"
   stub bktec \
-    "--version : echo 'bktec version 3.2.0'"
+    "--version : echo 'bktec version 3.2.1'"
 
   run $PWD/hooks/pre-command
   assert_success
-  assert_output --partial "Warning: bktec 3.2.0 does not support manual test selection"
+  assert_output --partial "Warning: bktec 3.2.1 does not support manual test selection"
 
   unstub bktec
 }
