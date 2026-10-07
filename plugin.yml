@@ -79,6 +79,12 @@ configuration:
       description: Prefix to prepend to test file paths when requesting a test plan.
 
     # Test selection
+    selection-strategy:
+      type: string
+      description: >-
+        Test selection strategy for the test plan (e.g. "manual", "random"). Pass the strategy's params with
+        --selection-param in the step's command. Defaults to "manual" when manual-selection-command is set. Requires
+        bktec 3.2.0 or later.
     manual-selection-command:
       type: string
       description: >-

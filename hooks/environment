@@ -16,6 +16,7 @@ declare -a PROPERTIES=(
   SPLIT_BY_EXAMPLE
   TAG_FILTERS
   LOCATION_PREFIX
+  SELECTION_STRATEGY
   RETRY_CMD
   RETRY_COUNT
   UPLOAD_RESULTS
@@ -67,8 +68,17 @@ fi
 
 # pre-command runs manual-selection-command and exports the selectors.
 if [[ -n "${BUILDKITE_PLUGIN_TESTS_MANUAL_SELECTION_COMMAND:-}" ]]; then
-  export BUILDKITE_TEST_ENGINE_SELECTION_STRATEGY=manual
-  exported_vars+=("BUILDKITE_TEST_ENGINE_SELECTION_STRATEGY")
+  case "${BUILDKITE_PLUGIN_TESTS_SELECTION_STRATEGY:-}" in
+    "")
+      export BUILDKITE_TEST_ENGINE_SELECTION_STRATEGY=manual
+      exported_vars+=("BUILDKITE_TEST_ENGINE_SELECTION_STRATEGY")
+      ;;
+    manual) ;;
+    *)
+      echo "Error: manual-selection-command needs selection-strategy: manual, not '${BUILDKITE_PLUGIN_TESTS_SELECTION_STRATEGY}'" >&2
+      exit 1
+      ;;
+  esac
 fi
 
 # TODO: 

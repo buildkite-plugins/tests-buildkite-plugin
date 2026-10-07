@@ -237,6 +237,10 @@ Enable example-level splitting. Not supported by every runner.
 
 Prefix to prepend to test file paths when requesting a test plan.
 
+#### `selection-strategy` (optional, string)
+
+Test selection strategy for the test plan, for example `manual` or `random`. Pass the strategy's params with `--selection-param` in the step's `command:`. Defaults to `manual` when `manual-selection-command` is set, and must be `manual` if you set both. Requires bktec 3.2.0 or later.
+
 #### `max-parallelism` (optional, integer)
 
 Maximum parallelism for dynamic test plans. Used with `bktec plan`.
