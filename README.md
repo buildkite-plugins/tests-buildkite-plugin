@@ -155,7 +155,7 @@ steps:
 
 Here `select-tests.sh` might print the changed specs with `git diff --name-only origin/main...HEAD -- '*_spec.rb'`, and `rspec-template.yml` is the run step from [Dynamic parallelism](#dynamic-parallelism) with `depends_on: select-tests`.
 
-- The step fails if the command fails or prints no tests, so limit it to builds with changes, as the `if:` does above.
+- If the command prints no tests, the plan selects none and, with `max-parallelism` above 1, `bktec plan` uploads no run step. The step fails if the command fails.
 - Run the step on the agent, not in Docker: the selectors span multiple lines, so they can't be propagated to a container.
 
 ### Docker

@@ -219,12 +219,12 @@ setup() {
   assert_output --partial "Error: manual-selection-command failed with exit status 3"
 }
 
-@test "fails when manual-selection-command prints no tests" {
+@test "exports an empty selection when manual-selection-command prints no tests" {
   export BUILDKITE_ENV_FILE=$(mktemp)
   export BUILDKITE_ORGANIZATION_SLUG="myorg"
   export BUILDKITE_PIPELINE_SLUG="mypipeline"
   export BUILDKITE_PLUGIN_TESTS_INSTALL_CLIENT=false
-  export BUILDKITE_PLUGIN_TESTS_MANUAL_SELECTION_COMMAND="printf '\n  \n'"
+  export BUILDKITE_PLUGIN_TESTS_MANUAL_SELECTION_COMMAND="true"
 
   audience="https://buildkite.com/organizations/myorg/analytics/suites/mypipeline"
 
@@ -232,9 +232,11 @@ setup() {
   stub curl \
     "-s -w '\\n%{http_code}' -H 'Authorization: Bearer faketoken' 'https://api.buildkite.com/v2/analytics/organizations/myorg/suites/mypipeline' : echo '{}' ; echo 200"
 
-  run $PWD/hooks/pre-command
-  assert_failure
-  assert_output --partial "Error: manual-selection-command printed no tests to run"
+  source $PWD/hooks/pre-command 2>"${BATS_TEST_TMPDIR}/stderr"
+
+  assert_equal "${BUILDKITE_TEST_ENGINE_SELECTION_SELECTORS-unset}" ""
+  run cat "${BATS_TEST_TMPDIR}/stderr"
+  assert_output --partial "Selected 0 tests"
 }
 
 @test "fails when pinned bktec version is too old for manual test selection" {

@@ -273,13 +273,12 @@ if [[ -n "${BUILDKITE_PLUGIN_TESTS_MANUAL_SELECTION_COMMAND:-}" ]]; then
     echo "Error: manual-selection-command failed with exit status $?" >&2
     exit 1
   }
-  # Manual selection needs at least one selector: the Test Engine API rejects an empty list.
-  if ! grep -q '[^[:space:]]' <<< "$selectors"; then
-    echo "Error: manual-selection-command printed no tests to run; manual selection needs at least one" >&2
-    exit 1
+  # An empty list is valid: the test plan selects no tests.
+  selected_count="$(grep -c '[^[:space:]]' <<< "$selectors" || true)"
+  echo "Selected ${selected_count} tests" >&2
+  if (( selected_count > 0 )); then
+    echo "$selectors" >&2
   fi
-  echo "Selected $(grep -c '[^[:space:]]' <<< "$selectors") tests:" >&2
-  echo "$selectors" >&2
   # Not written to BUILDKITE_ENV_FILE: it holds one selector per line, which
   # that file's KEY=value lines can't represent.
   export BUILDKITE_TEST_ENGINE_SELECTION_SELECTORS="$selectors"
