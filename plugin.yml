@@ -82,10 +82,8 @@ configuration:
     selection-strategy:
       type: string
       description: >-
-        Test selection strategy for the test plan (e.g. "manual", "random"). Pass the strategy's params with
-        --selection-param in the step's command; manual selection reads its selectors from manual-selection-command.
-        Defaults to "manual" when manual-selection-command is set. Any other strategy skips manual-selection-command.
-        Requires bktec 3.2.0 or later.
+        Test selection strategy for the test plan. "manual" is currently the only available strategy: it runs only the
+        tests printed by manual-selection-command. Defaults to "manual" when manual-selection-command is set.
     manual-selection-command:
       type: string
       description: >-

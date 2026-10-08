@@ -51,7 +51,7 @@ steps:
   - label: "RSpec"
     command: bktec run
     plugins:
-      - tests#v1.0.1:
+      - tests#v1.1.0:
           test-runner: rspec
           result-path: tmp/rspec-result.json
     parallelism: 2
@@ -70,7 +70,7 @@ steps:
   - label: "Jest"
     command: bktec run
     plugins:
-      - tests#v1.0.1:
+      - tests#v1.1.0:
           test-runner: jest
           result-path: jest-results.json
     parallelism: 4
@@ -84,7 +84,7 @@ steps:
     command: bktec run
     parallelism: 5
     plugins:
-      - tests#v1.0.1:
+      - tests#v1.1.0:
           test-runner: pytest
 ```
 
@@ -95,7 +95,7 @@ steps:
   - label: "Go test"
     command: bktec run
     plugins:
-      - tests#v1.0.1:
+      - tests#v1.1.0:
           test-runner: gotest
           result-path: gotest-results.xml
     parallelism: 4
@@ -111,7 +111,7 @@ steps:
     key: rspec-plan
     command: bktec plan --pipeline-upload .buildkite/rspec-template.yml
     plugins:
-      - tests#v1.0.1:
+      - tests#v1.1.0:
           test-runner: rspec
           result-path: tmp/rspec-result.json
           max-parallelism: 10
@@ -128,7 +128,7 @@ steps:
     command: bktec run --plan-identifier ${BUILDKITE_TEST_ENGINE_PLAN_IDENTIFIER}
     parallelism: ${BUILDKITE_TEST_ENGINE_PARALLELISM}
     plugins:
-      - tests#v1.0.1:
+      - tests#v1.1.0:
           test-runner: rspec
           result-path: tmp/rspec-result.json
 ```
@@ -144,7 +144,7 @@ steps:
     if: build.pull_request.id != null
     command: bktec plan --pipeline-upload .buildkite/rspec-template.yml
     plugins:
-      - tests#v1.0.1:
+      - tests#v1.1.0:
           test-runner: rspec
           result-path: tmp/rspec-result.json
           max-parallelism: 10
@@ -165,7 +165,7 @@ steps:
   - label: "Jest"
     command: bktec run
     plugins:
-      - tests#v1.0.1:
+      - tests#v1.1.0:
           test-runner: jest
           client-os: linux
           result-path: jest-results.json
@@ -237,7 +237,7 @@ Prefix to prepend to test file paths when requesting a test plan.
 
 #### `selection-strategy` (optional, string)
 
-Test selection strategy for the test plan, for example `manual` or `random`. Pass the strategy's params with `--selection-param` in the step's `command:`; manual selection reads its selectors from [`manual-selection-command`](#manual-selection-command-optional-string). Defaults to `manual` when `manual-selection-command` is set. Any other strategy skips `manual-selection-command`, so a step can default to manual selection and switch strategy per build, for example `selection-strategy: "${TE_SELECTION_STRATEGY:-manual}"`. Requires bktec 3.2.0 or later.
+Test selection strategy for the test plan. `manual` is currently the only available strategy: it runs only the tests printed by [`manual-selection-command`](#manual-selection-command-optional-string). Defaults to `manual` when `manual-selection-command` is set, so you don't need to set both. See [Manual test selection](#manual-test-selection).
 
 #### `max-parallelism` (optional, integer)
 
@@ -267,7 +267,7 @@ Tags to attach to the uploaded test results. Each tag is a `key=value` string.
 
 ```yaml
 plugins:
-  - tests#v1.0.1:
+  - tests#v1.1.0:
       test-runner: rspec
       tags:
         - "language.version=3.3"
@@ -312,7 +312,7 @@ A small number of bktec flags cannot be set through environment variables, so th
 
 | Flag                | Command                    | Notes                                               |
 | ------------------- | -------------------------- | --------------------------------------------------- |
-| `--selection-param` | `run`, `plan`              | Params for strategies other than `manual`           |
+| `--selection-param` | `run`, `plan`              | Not needed for manual selection                     |
 | `--metadata`        | `run`, `plan`              | Preview selection                                   |
 | `--json`            | `plan`                     | Print the plan as JSON to stdout                    |
 | `--pipeline-upload` | `plan`                     | Upload a follow-up pipeline step that runs the plan |
