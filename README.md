@@ -133,6 +133,29 @@ steps:
           result-path: tmp/rspec-result.json
 ```
 
+### Manual test selection
+
+To run only the tests you choose, set `manual-selection-command` to a command that prints them, one per line. The plugin exports its output as `BUILDKITE_TEST_ENGINE_SELECTION_SELECTORS`, which `bktec plan` and `bktec run` read as the tests to select. Requires bktec 3.3.0 or later.
+
+```yaml
+steps:
+  - label: "Select tests"
+    key: select-tests
+    if: build.pull_request.id != null
+    command: bktec plan --pipeline-upload .buildkite/rspec-template.yml
+    plugins:
+      - tests#v1.0.1:
+          test-runner: rspec
+          result-path: tmp/rspec-result.json
+          max-parallelism: 10
+          manual-selection-command: .buildkite/select-tests.sh
+```
+
+Here `select-tests.sh` might print the changed specs with `git diff --name-only origin/main...HEAD -- '*_spec.rb'`, and `rspec-template.yml` is the run step from [Dynamic parallelism](#dynamic-parallelism) with `depends_on: select-tests`.
+
+- If the command prints no tests, the plan selects none and, with `max-parallelism` above 1, `bktec plan` uploads no run step. The step fails if the command fails.
+- To run the step in Docker, list `BUILDKITE_TEST_ENGINE_SELECTION_SELECTORS` under the Docker plugin's `environment:`. `propagate-environment` only passes variables the plugin writes to `BUILDKITE_ENV_FILE`, and the selectors aren't written there because that file can't hold multi-line values. Without it, bktec sends no selectors and the step fails.
+
 ### Docker
 
 When the test command runs inside a Docker container, the plugin downloads bktec on the host (the default) and sets `BUILDKITE_TEST_ENGINE_CLIENT_PATH` that you can mount into the container. Set `propagate-environment: true` on the Docker plugin so the container picks up the `BUILDKITE_TEST_ENGINE_*` variables that are required to run `bktec`. Set `client-os` and `client-arch` when the host operating system or architecture differs from the container.
@@ -212,6 +235,10 @@ Enable example-level splitting. Not supported by every runner.
 
 Prefix to prepend to test file paths when requesting a test plan.
 
+#### `selection-strategy` (optional, string)
+
+Test selection strategy for the test plan, for example `manual` or `random`. Pass the strategy's params with `--selection-param` in the step's `command:`; manual selection reads its selectors from [`manual-selection-command`](#manual-selection-command-optional-string). Defaults to `manual` when `manual-selection-command` is set. Any other strategy skips `manual-selection-command`, so a step can default to manual selection and switch strategy per build, for example `selection-strategy: "${TE_SELECTION_STRATEGY:-manual}"`. Requires bktec 3.2.0 or later.
+
 #### `max-parallelism` (optional, integer)
 
 Maximum parallelism for dynamic test plans. Used with `bktec plan`.
@@ -271,6 +298,10 @@ Target architecture for the downloaded binary, for example `amd64` or `arm64`. D
 
 bktec version to download, for example `2.4.0` or `3.1.0-rc.1`. An optional leading `v` is accepted. Defaults to the latest release.
 
+#### `manual-selection-command` (optional, string)
+
+Command that prints the tests to run, one per line. Its output is exported as `BUILDKITE_TEST_ENGINE_SELECTION_SELECTORS`. Skipped, with a warning, when `selection-strategy` is set to anything other than `manual`. See [Manual test selection](#manual-test-selection).
+
 #### `oidc-lifetime` (optional, integer)
 
 Lifetime in seconds for the OIDC token. Default: `300`.
@@ -281,7 +312,7 @@ A small number of bktec flags cannot be set through environment variables, so th
 
 | Flag                | Command                    | Notes                                               |
 | ------------------- | -------------------------- | --------------------------------------------------- |
-| `--selection-param` | `run`, `plan`              | Preview selection                                   |
+| `--selection-param` | `run`, `plan`              | Params for strategies other than `manual`           |
 | `--metadata`        | `run`, `plan`              | Preview selection                                   |
 | `--json`            | `plan`                     | Print the plan as JSON to stdout                    |
 | `--pipeline-upload` | `plan`                     | Upload a follow-up pipeline step that runs the plan |
