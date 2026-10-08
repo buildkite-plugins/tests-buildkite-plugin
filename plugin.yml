@@ -84,13 +84,14 @@ configuration:
       description: >-
         Test selection strategy for the test plan (e.g. "manual", "random"). Pass the strategy's params with
         --selection-param in the step's command; manual selection reads its selectors from manual-selection-command.
-        Defaults to "manual" when manual-selection-command is set. Requires bktec 3.2.0 or later.
+        Defaults to "manual" when manual-selection-command is set. Any other strategy skips manual-selection-command.
+        Requires bktec 3.2.0 or later.
     manual-selection-command:
       type: string
       description: >-
         Command that prints the tests to run, one per line, for manual test selection. Runs before the step's command,
-        and its output is exported as BUILDKITE_TEST_ENGINE_SELECTION_SELECTORS, which bktec reads. Requires bktec
-        3.3.0 or later.
+        and its output is exported as BUILDKITE_TEST_ENGINE_SELECTION_SELECTORS, which bktec reads. Skipped when
+        selection-strategy is set to anything other than "manual". Requires bktec 3.3.0 or later.
 
     # Test runner retry
     retry-cmd:

@@ -237,7 +237,7 @@ Prefix to prepend to test file paths when requesting a test plan.
 
 #### `selection-strategy` (optional, string)
 
-Test selection strategy for the test plan, for example `manual` or `random`. Pass the strategy's params with `--selection-param` in the step's `command:`; manual selection reads its selectors from [`manual-selection-command`](#manual-selection-command-optional-string). Defaults to `manual` when `manual-selection-command` is set, and must be `manual` if you set both. Requires bktec 3.2.0 or later.
+Test selection strategy for the test plan, for example `manual` or `random`. Pass the strategy's params with `--selection-param` in the step's `command:`; manual selection reads its selectors from [`manual-selection-command`](#manual-selection-command-optional-string). Defaults to `manual` when `manual-selection-command` is set. Any other strategy skips `manual-selection-command`, so a step can default to manual selection and switch strategy per build, for example `selection-strategy: "${TE_SELECTION_STRATEGY:-manual}"`. Requires bktec 3.2.0 or later.
 
 #### `max-parallelism` (optional, integer)
 
@@ -300,7 +300,7 @@ bktec version to download, for example `2.4.0` or `3.1.0-rc.1`. An optional lead
 
 #### `manual-selection-command` (optional, string)
 
-Command that prints the tests to run, one per line. Its output is exported as `BUILDKITE_TEST_ENGINE_SELECTION_SELECTORS`. See [Manual test selection](#manual-test-selection).
+Command that prints the tests to run, one per line. Its output is exported as `BUILDKITE_TEST_ENGINE_SELECTION_SELECTORS`. Skipped, with a warning, when `selection-strategy` is set to anything other than `manual`. See [Manual test selection](#manual-test-selection).
 
 #### `oidc-lifetime` (optional, integer)
 

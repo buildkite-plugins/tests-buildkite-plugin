@@ -239,6 +239,31 @@ setup() {
   assert_output --partial "Selected 0 tests"
 }
 
+@test "skips manual-selection-command when selection-strategy is not manual" {
+  export BUILDKITE_ENV_FILE=$(mktemp)
+  export BUILDKITE_ORGANIZATION_SLUG="myorg"
+  export BUILDKITE_PIPELINE_SLUG="mypipeline"
+  export BUILDKITE_PLUGIN_TESTS_INSTALL_CLIENT=false
+  export BUILDKITE_PLUGIN_TESTS_SELECTION_STRATEGY="random"
+  export BUILDKITE_PLUGIN_TESTS_MANUAL_SELECTION_COMMAND="echo ran > ${BATS_TEST_TMPDIR}/ran"
+  # Too old for manual selection, which is skipped, so it mustn't fail.
+  export BUILDKITE_PLUGIN_TESTS_CLIENT_VERSION=3.2.1
+  unset BUILDKITE_TEST_ENGINE_SELECTION_SELECTORS
+
+  audience="https://buildkite.com/organizations/myorg/analytics/suites/mypipeline"
+
+  stub buildkite-agent "oidc request-token --audience ${audience} --lifetime 300 : echo faketoken"
+  stub curl \
+    "-s -w '\\n%{http_code}' -H 'Authorization: Bearer faketoken' 'https://api.buildkite.com/v2/analytics/organizations/myorg/suites/mypipeline' : echo '{}' ; echo 200"
+
+  source $PWD/hooks/pre-command 2>"${BATS_TEST_TMPDIR}/stderr"
+
+  assert_equal "${BUILDKITE_TEST_ENGINE_SELECTION_SELECTORS-unset}" "unset"
+  assert [ ! -e "${BATS_TEST_TMPDIR}/ran" ]
+  run cat "${BATS_TEST_TMPDIR}/stderr"
+  assert_output --partial "Warning: skipping manual-selection-command because selection-strategy is 'random', not manual"
+}
+
 @test "fails when pinned bktec version is too old for manual test selection" {
   export BUILDKITE_PLUGIN_TESTS_CLIENT_VERSION=3.2.1
   export BUILDKITE_PLUGIN_TESTS_MANUAL_SELECTION_COMMAND="echo spec/a_spec.rb"

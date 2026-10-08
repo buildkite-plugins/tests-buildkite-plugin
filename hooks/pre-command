@@ -38,7 +38,17 @@ if [[ -n "${BUILDKITE_PLUGIN_TESTS_CLIENT_VERSION:-}" ]] \
   exit 1
 fi
 
-if [[ -n "${BUILDKITE_PLUGIN_TESTS_MANUAL_SELECTION_COMMAND:-}" && -n "${BUILDKITE_PLUGIN_TESTS_CLIENT_VERSION:-}" ]] \
+# manual-selection-command only applies to manual selection, so a step can
+# default to it and switch strategy per build.
+manual_selection=false
+if [[ -n "${BUILDKITE_PLUGIN_TESTS_MANUAL_SELECTION_COMMAND:-}" ]]; then
+  case "${BUILDKITE_PLUGIN_TESTS_SELECTION_STRATEGY:-manual}" in
+    manual) manual_selection=true ;;
+    *) echo "Warning: skipping manual-selection-command because selection-strategy is '${BUILDKITE_PLUGIN_TESTS_SELECTION_STRATEGY}', not manual" >&2 ;;
+  esac
+fi
+
+if [[ "$manual_selection" == true && -n "${BUILDKITE_PLUGIN_TESTS_CLIENT_VERSION:-}" ]] \
   && version_lt "${BUILDKITE_PLUGIN_TESTS_CLIENT_VERSION}" "${SELECTION_MIN_VERSION}"; then
   echo "Error: bktec ${BUILDKITE_PLUGIN_TESTS_CLIENT_VERSION} does not support manual test selection — minimum required version is ${SELECTION_MIN_VERSION}. Upgrade to ${SELECTION_MIN_VERSION}+, or remove manual-selection-command." >&2
   exit 1
@@ -258,7 +268,7 @@ if [[ "${BUILDKITE_PLUGIN_TESTS_INSTALL_CLIENT:-true}" =~ ^(true|on|1)$ ]]; then
         && version_lt "$existing_version" "${UPLOAD_MIN_VERSION}"; then
         echo "Warning: bktec ${existing_version} does not support upload_results (requires >= ${UPLOAD_MIN_VERSION}). Test results will not be uploaded." >&2
       fi
-      if [[ -n "${BUILDKITE_PLUGIN_TESTS_MANUAL_SELECTION_COMMAND:-}" ]] \
+      if [[ "$manual_selection" == true ]] \
         && version_lt "$existing_version" "${SELECTION_MIN_VERSION}"; then
         echo "Warning: bktec ${existing_version} does not support manual test selection (requires >= ${SELECTION_MIN_VERSION})." >&2
       fi
@@ -266,7 +276,7 @@ if [[ "${BUILDKITE_PLUGIN_TESTS_INSTALL_CLIENT:-true}" =~ ^(true|on|1)$ ]]; then
   fi
 fi
 
-if [[ -n "${BUILDKITE_PLUGIN_TESTS_MANUAL_SELECTION_COMMAND:-}" ]]; then
+if [[ "$manual_selection" == true ]]; then
   echo "--- :mag: Selecting tests" >&2
   echo "Running: ${BUILDKITE_PLUGIN_TESTS_MANUAL_SELECTION_COMMAND}" >&2
   selectors="$(bash -c "${BUILDKITE_PLUGIN_TESTS_MANUAL_SELECTION_COMMAND}")" || {

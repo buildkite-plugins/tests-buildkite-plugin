@@ -115,13 +115,15 @@ setup() {
   assert_output "1"
 }
 
-@test "fails when manual-selection-command is set with another selection-strategy" {
+@test "keeps another selection-strategy with manual-selection-command" {
   export BUILDKITE_PLUGIN_TESTS_SELECTION_STRATEGY="random"
   export BUILDKITE_PLUGIN_TESTS_MANUAL_SELECTION_COMMAND=".buildkite/select-tests.sh"
   export BUILDKITE_ENV_FILE=$(mktemp)
 
   run $PWD/hooks/environment
+  assert_success
 
-  assert_failure
-  assert_output --partial "manual-selection-command needs selection-strategy: manual, not 'random'"
+  run cat ${BUILDKITE_ENV_FILE}
+  assert_line "BUILDKITE_TEST_ENGINE_SELECTION_STRATEGY=random"
+  refute_line "BUILDKITE_TEST_ENGINE_SELECTION_STRATEGY=manual"
 }
