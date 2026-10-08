@@ -154,7 +154,7 @@ steps:
 Here `select-tests.sh` might print the changed specs with `git diff --name-only origin/main...HEAD -- '*_spec.rb'`, and `rspec-template.yml` is the run step from [Dynamic parallelism](#dynamic-parallelism) with `depends_on: select-tests`.
 
 - If the command prints no tests, the plan selects none and, with `max-parallelism` above 1, `bktec plan` uploads no run step. The step fails if the command fails.
-- To run the step in Docker, list `BUILDKITE_TEST_ENGINE_SELECTION_SELECTORS` under the Docker plugin's `environment:`. `propagate-environment` doesn't pass it, because the selectors span multiple lines. Without it, bktec sends no selectors and the step fails.
+- To run the step in Docker, list `BUILDKITE_TEST_ENGINE_SELECTION_SELECTORS` under the Docker plugin's `environment:`. `propagate-environment` only passes variables the plugin writes to `BUILDKITE_ENV_FILE`, and the selectors aren't written there because that file can't hold multi-line values. Without it, bktec sends no selectors and the step fails.
 
 ### Docker
 
