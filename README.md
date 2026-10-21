@@ -51,7 +51,7 @@ steps:
   - label: "RSpec"
     command: bktec run
     plugins:
-      - tests#v1.0.1:
+      - tests#v1.1.0:
           test-runner: rspec
           result-path: tmp/rspec-result.json
     parallelism: 2
@@ -70,7 +70,7 @@ steps:
   - label: "Jest"
     command: bktec run
     plugins:
-      - tests#v1.0.1:
+      - tests#v1.1.0:
           test-runner: jest
           result-path: jest-results.json
     parallelism: 4
@@ -84,7 +84,7 @@ steps:
     command: bktec run
     parallelism: 5
     plugins:
-      - tests#v1.0.1:
+      - tests#v1.1.0:
           test-runner: pytest
 ```
 
@@ -95,7 +95,7 @@ steps:
   - label: "Go test"
     command: bktec run
     plugins:
-      - tests#v1.0.1:
+      - tests#v1.1.0:
           test-runner: gotest
           result-path: gotest-results.xml
     parallelism: 4
@@ -111,7 +111,7 @@ steps:
     key: rspec-plan
     command: bktec plan --pipeline-upload .buildkite/rspec-template.yml
     plugins:
-      - tests#v1.0.1:
+      - tests#v1.1.0:
           test-runner: rspec
           result-path: tmp/rspec-result.json
           max-parallelism: 10
@@ -128,10 +128,33 @@ steps:
     command: bktec run --plan-identifier ${BUILDKITE_TEST_ENGINE_PLAN_IDENTIFIER}
     parallelism: ${BUILDKITE_TEST_ENGINE_PARALLELISM}
     plugins:
-      - tests#v1.0.1:
+      - tests#v1.1.0:
           test-runner: rspec
           result-path: tmp/rspec-result.json
 ```
+
+### Manual test selection
+
+To run only the tests you choose, set `manual-selection-command` to a command that prints them, one per line. The plugin exports its output as `BUILDKITE_TEST_ENGINE_SELECTION_SELECTORS`, which `bktec plan` and `bktec run` read as the tests to select. Requires bktec 3.3.0 or later.
+
+```yaml
+steps:
+  - label: "Select tests"
+    key: select-tests
+    if: build.pull_request.id != null
+    command: bktec plan --pipeline-upload .buildkite/rspec-template.yml
+    plugins:
+      - tests#v1.1.0:
+          test-runner: rspec
+          result-path: tmp/rspec-result.json
+          max-parallelism: 10
+          manual-selection-command: .buildkite/select-tests.sh
+```
+
+Here `select-tests.sh` might print the changed specs with `git diff --name-only origin/main...HEAD -- '*_spec.rb'`, and `rspec-template.yml` is the run step from [Dynamic parallelism](#dynamic-parallelism) with `depends_on: select-tests`.
+
+- If the command prints no tests, the plan selects none and, with `max-parallelism` above 1, `bktec plan` uploads no run step. The step fails if the command fails.
+- To run the step in Docker, list `BUILDKITE_TEST_ENGINE_SELECTION_SELECTORS` under the Docker plugin's `environment:`. `propagate-environment` only passes variables the plugin writes to `BUILDKITE_ENV_FILE`, and the selectors aren't written there because that file can't hold multi-line values. Without it, bktec sends no selectors and the step fails.
 
 ### Docker
 
@@ -142,7 +165,7 @@ steps:
   - label: "Jest"
     command: bktec run
     plugins:
-      - tests#v1.0.1:
+      - tests#v1.1.0:
           test-runner: jest
           client-os: linux
           result-path: jest-results.json
@@ -212,6 +235,10 @@ Enable example-level splitting. Not supported by every runner.
 
 Prefix to prepend to test file paths when requesting a test plan.
 
+#### `selection-strategy` (optional, string)
+
+Test selection strategy for the test plan. `manual` is currently the only available strategy: it runs only the tests printed by [`manual-selection-command`](#manual-selection-command-optional-string). Defaults to `manual` when `manual-selection-command` is set, so you don't need to set both. See [Manual test selection](#manual-test-selection).
+
 #### `max-parallelism` (optional, integer)
 
 Maximum parallelism for dynamic test plans. Used with `bktec plan`.
@@ -240,7 +267,7 @@ Tags to attach to the uploaded test results. Each tag is a `key=value` string.
 
 ```yaml
 plugins:
-  - tests#v1.0.1:
+  - tests#v1.1.0:
       test-runner: rspec
       tags:
         - "language.version=3.3"
@@ -271,6 +298,10 @@ Target architecture for the downloaded binary, for example `amd64` or `arm64`. D
 
 bktec version to download, for example `2.4.0` or `3.1.0-rc.1`. An optional leading `v` is accepted. Defaults to the latest release.
 
+#### `manual-selection-command` (optional, string)
+
+Command that prints the tests to run, one per line. Its output is exported as `BUILDKITE_TEST_ENGINE_SELECTION_SELECTORS`. Skipped, with a warning, when `selection-strategy` is set to anything other than `manual`. See [Manual test selection](#manual-test-selection).
+
 #### `oidc-lifetime` (optional, integer)
 
 Lifetime in seconds for the OIDC token. Default: `300`.
@@ -281,7 +312,7 @@ A small number of bktec flags cannot be set through environment variables, so th
 
 | Flag                | Command                    | Notes                                               |
 | ------------------- | -------------------------- | --------------------------------------------------- |
-| `--selection-param` | `run`, `plan`              | Preview selection                                   |
+| `--selection-param` | `run`, `plan`              | Not needed for manual selection                     |
 | `--metadata`        | `run`, `plan`              | Preview selection                                   |
 | `--json`            | `plan`                     | Print the plan as JSON to stdout                    |
 | `--pipeline-upload` | `plan`                     | Upload a follow-up pipeline step that runs the plan |

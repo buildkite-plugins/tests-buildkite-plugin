@@ -16,6 +16,7 @@ declare -a PROPERTIES=(
   SPLIT_BY_EXAMPLE
   TAG_FILTERS
   LOCATION_PREFIX
+  SELECTION_STRATEGY
   RETRY_CMD
   RETRY_COUNT
   UPLOAD_RESULTS
@@ -63,6 +64,13 @@ elif [[ -n "${BUILDKITE_PLUGIN_TESTS_TAGS_0:-}" ]]; then
   joined=$(IFS=','; echo "${tags[*]}")
   export "BUILDKITE_TEST_ENGINE_TAGS=$joined"
   exported_vars+=("BUILDKITE_TEST_ENGINE_TAGS")
+fi
+
+# manual-selection-command defaults the strategy to manual. pre-command runs
+# it and exports the selectors, or skips it when another strategy is set.
+if [[ -n "${BUILDKITE_PLUGIN_TESTS_MANUAL_SELECTION_COMMAND:-}" && -z "${BUILDKITE_PLUGIN_TESTS_SELECTION_STRATEGY:-}" ]]; then
+  export BUILDKITE_TEST_ENGINE_SELECTION_STRATEGY=manual
+  exported_vars+=("BUILDKITE_TEST_ENGINE_SELECTION_STRATEGY")
 fi
 
 # TODO: 
