@@ -180,3 +180,40 @@ setup() {
   run "${BUILDKITE_TEST_ENGINE_CLIENT_PATH}"
   assert_output "fake bktec"
 }
+
+@test "pinned bktec takes precedence over an older executable on PATH" {
+  export BUILDKITE_ENV_FILE=$(mktemp)
+  export BUILDKITE_ORGANIZATION_SLUG="myorg"
+  export BUILDKITE_PIPELINE_SLUG="mypipeline"
+  export BUILDKITE_PLUGIN_TESTS_CLIENT_VERSION="3.3.1"
+  export BUILDKITE_PLUGIN_TESTS_CLIENT_OS="linux"
+  export BUILDKITE_PLUGIN_TESTS_CLIENT_ARCH="amd64"
+  export TMPDIR="${BATS_TEST_TMPDIR}"
+
+  old_dir="${BATS_TEST_TMPDIR}/old-bin"
+  selected_dir="${TMPDIR}/buildkite-plugin-test-engine/3.3.1/linux_amd64"
+  mkdir -p "$old_dir" "$selected_dir"
+  printf '%s\n' '#!/usr/bin/env bash' 'echo "bktec version 3.3.0"' > "${old_dir}/bktec"
+  printf '%s\n' '#!/usr/bin/env bash' 'echo "bktec version 3.3.1"' > "${selected_dir}/bktec"
+  chmod +x "${old_dir}/bktec" "${selected_dir}/bktec"
+  export PATH="${old_dir}:${PATH}"
+
+  run bktec --version
+  assert_success
+  assert_output "bktec version 3.3.0"
+
+  audience="https://buildkite.com/organizations/myorg/analytics/suites/mypipeline"
+  stub buildkite-agent "oidc request-token --audience ${audience} --lifetime 300 : echo faketoken"
+  stub curl \
+    "-s -w '\\n%{http_code}' -H 'Authorization: Bearer faketoken' 'https://api.buildkite.com/v2/analytics/organizations/myorg/suites/mypipeline' : echo '{}' ; echo 200"
+
+  source "$PWD/hooks/pre-command"
+
+  assert_equal "${BUILDKITE_TEST_ENGINE_CLIENT_PATH}" "${selected_dir}/bktec"
+  run bktec --version
+  assert_success
+  assert_output "bktec version 3.3.1"
+
+  unstub buildkite-agent
+  unstub curl
+}
