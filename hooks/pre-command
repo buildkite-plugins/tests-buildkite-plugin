@@ -257,7 +257,7 @@ if [[ "${BUILDKITE_PLUGIN_TESTS_INSTALL_CLIENT:-true}" =~ ^(true|on|1)$ ]]; then
     BKTEC_BIN="$(download_bktec "${TMPDIR:-/tmp}/buildkite-plugin-test-engine")"
     BKTEC_DIR="$(dirname "$BKTEC_BIN")"
     export BUILDKITE_TEST_ENGINE_CLIENT_PATH="$BKTEC_BIN"
-    export PATH="${PATH}:${BKTEC_DIR}"
+    export PATH="${BKTEC_DIR}:${PATH}"
   else
     BKTEC_BIN="$(command -v bktec)"
     echo "bktec already installed at ${BKTEC_BIN}, skipping download" >&2
