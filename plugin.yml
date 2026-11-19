@@ -9,7 +9,9 @@ configuration:
     # Plugin-specific
     oidc-lifetime:
       type: integer
-      description: Lifetime in seconds for the OIDC token. Defaults to 7200 (2 hours).
+      description: >-
+        Lifetime in seconds for the suite-scoped OIDC token exported to bktec and test collectors. Defaults to 7200
+        (2 hours), Buildkite's default maximum.
     install-client:
       type: boolean
       description: >-

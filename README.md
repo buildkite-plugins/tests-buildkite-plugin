@@ -264,7 +264,9 @@ Command that prints the tests to run, one per line. Its output is exported as `B
 
 #### `oidc-lifetime` (optional, integer)
 
-Lifetime in seconds for the OIDC token. Default: `7200` (2 hours), matching bktec's default. The token is used throughout the job, including test result uploads, so set this longer than the time from the pre-command hook to the end of the job.
+Lifetime in seconds for the suite-scoped OIDC token that the plugin exports to bktec and test collectors. Default: `7200` (2 hours), which matches bktec's default and is Buildkite's default maximum OIDC token lifetime. If the value exceeds your organization's maximum, Buildkite refuses the token and the job fails.
+
+The token must stay valid until test results are uploaded at the end of the job, so a lower value can cause uploads to fail. With the default, results are not uploaded if the job runs for more than 2 hours after the pre-command hook.
 
 ## How it works
 

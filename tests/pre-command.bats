@@ -144,7 +144,7 @@ setup() {
 
   stub buildkite-agent \
     "oidc request-token --audience ${suite_audience} --lifetime 7200 : echo suitetoken" \
-    "oidc request-token --audience ${org_audience} --lifetime 7200 : echo orgtoken"
+    "oidc request-token --audience ${org_audience} --lifetime 300 : echo orgtoken"
   stub curl \
     "-s -w '\\n%{http_code}' -H 'Authorization: Bearer suitetoken' 'https://api.buildkite.com/v2/analytics/organizations/myorg/suites/mypipeline' : echo '{}' ; echo 404" \
     "-s -w '\\n%{http_code}' -X POST -H 'Authorization: Bearer orgtoken' -H 'Content-Type: application/json' --data '{}' 'https://api.buildkite.com/v2/analytics/organizations/myorg/suites/create_from_pipeline' : echo '{}' ; echo 500"
@@ -154,6 +154,9 @@ setup() {
   run $PWD/hooks/pre-command
   assert_success
   assert_output --partial "Warning: could not create Test Suite"
+
+  unstub buildkite-agent
+  unstub curl
 }
 
 @test "downloads a pinned bktec prerelease" {
