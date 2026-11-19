@@ -266,7 +266,7 @@ Command that prints the tests to run, one per line. Its output is exported as `B
 
 Lifetime in seconds for the suite-scoped OIDC token exported to bktec and test collectors. Default: `7200` (2 hours), matching bktec's default.
 
-The token must cover setup, tests, and uploads. It is issued during `pre-command` and is not refreshed. Uploads after it expires fail, but the job can still pass. Results already uploaded are unaffected.
+The token must cover setup, tests, and uploads. It is issued during `pre-command` and is not refreshed. Uploads after it expires fail, but the job can still pass.
 
 Buildkite's [default maximum OIDC lifetime](https://buildkite.com/docs/platform/limits#platform-and-organization-level-limits) is 2 hours. If the value exceeds your organization's limit, the token request fails and the job stops before tests run.
 
