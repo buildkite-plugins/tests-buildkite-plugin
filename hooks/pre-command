@@ -138,7 +138,7 @@ suite_oidc_audience() {
 
 request_oidc_token() {
   local audience="$1" lifetime
-  lifetime="${BUILDKITE_PLUGIN_TESTS_OIDC_LIFETIME:-300}"
+  lifetime="${BUILDKITE_PLUGIN_TESTS_OIDC_LIFETIME:-7200}"
   # Log to stderr so the caller can capture just the token from stdout.
   echo "--- :buildkite::key: Requesting OIDC token for Test Suite" >&2
   echo "Audience: ${audience}" >&2

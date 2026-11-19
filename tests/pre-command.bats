@@ -9,14 +9,14 @@ setup() {
   # export MKTEMP_STUB_DEBUG=/dev/tty
 }
 
-@test "sets env vars" {
+@test "sets env vars using a two-hour OIDC token by default" {
   export BUILDKITE_ENV_FILE=$(mktemp)
   export BUILDKITE_ORGANIZATION_SLUG="myorg" 
   export BUILDKITE_PIPELINE_SLUG="mypipeline" 
 
   audience="https://buildkite.com/organizations/myorg/analytics/suites/mypipeline"
 
-  stub buildkite-agent "oidc request-token --audience ${audience} --lifetime 300 : echo faketoken"
+  stub buildkite-agent "oidc request-token --audience ${audience} --lifetime 7200 : echo faketoken"
   stub curl \
     "-s -w '\\n%{http_code}' -H 'Authorization: Bearer faketoken' 'https://api.buildkite.com/v2/analytics/organizations/myorg/suites/mypipeline' : echo '{}' ; echo 200"
 
@@ -29,6 +29,33 @@ setup() {
   assert_equal "${BUILDKITE_TEST_ENGINE_SUITE_SLUG}" mypipeline
   assert_equal "${BUILDKITE_ANALYTICS_TOKEN}" faketoken
   assert_equal "${BUILDKITE_TEST_ENGINE_API_ACCESS_TOKEN}" faketoken
+
+  unstub buildkite-agent
+  unstub curl
+}
+
+@test "respects an explicit OIDC token lifetime" {
+  export BUILDKITE_ENV_FILE=$(mktemp)
+  export BUILDKITE_ORGANIZATION_SLUG="myorg"
+  export BUILDKITE_PIPELINE_SLUG="mypipeline"
+  export BUILDKITE_PLUGIN_TESTS_INSTALL_CLIENT=false
+  export BUILDKITE_PLUGIN_TESTS_OIDC_LIFETIME=900
+
+  audience="https://buildkite.com/organizations/myorg/analytics/suites/mypipeline"
+
+  stub buildkite-agent "oidc request-token --audience ${audience} --lifetime 900 : echo faketoken"
+  stub curl \
+    "-s -w '\\n%{http_code}' -H 'Authorization: Bearer faketoken' 'https://api.buildkite.com/v2/analytics/organizations/myorg/suites/mypipeline' : echo '{}' ; echo 200"
+
+  run $PWD/hooks/pre-command
+  assert_success
+
+  source ${BUILDKITE_ENV_FILE}
+  assert_equal "${BUILDKITE_ANALYTICS_TOKEN}" faketoken
+  assert_equal "${BUILDKITE_TEST_ENGINE_API_ACCESS_TOKEN}" faketoken
+
+  unstub buildkite-agent
+  unstub curl
 }
 
 @test "fails when pinned bktec version is too old for upload_results" {
@@ -54,7 +81,7 @@ setup() {
   tmpdir="/tmp/buildkite-plugin-test-engine/2.6.0/linux_amd64"
   tmpfile="${tmpdir}/bktec.1234567"
 
-  stub buildkite-agent "oidc request-token --audience ${audience} --lifetime 300 : echo faketoken"
+  stub buildkite-agent "oidc request-token --audience ${audience} --lifetime 7200 : echo faketoken"
   stub mktemp "${tmpdir}/bktec.XXXXXXX : echo ${tmpfile}"
   stub curl \
     "-s -w '\\n%{http_code}' -H 'Authorization: Bearer faketoken' 'https://api.buildkite.com/v2/analytics/organizations/myorg/suites/mypipeline' : echo '{}' ; echo 200" \
@@ -75,7 +102,7 @@ setup() {
 
   audience="https://buildkite.com/organizations/myorg/analytics/suites/mypipeline"
 
-  stub buildkite-agent "oidc request-token --audience ${audience} --lifetime 300 : echo faketoken"
+  stub buildkite-agent "oidc request-token --audience ${audience} --lifetime 7200 : echo faketoken"
   stub curl \
     "-s -w '\\n%{http_code}' -H 'Authorization: Bearer faketoken' 'https://api.buildkite.com/v2/analytics/organizations/myorg/suites/mypipeline' : echo '{}' ; echo 200"
   stub bktec \
@@ -96,7 +123,7 @@ setup() {
   audience="https://buildkite.com/organizations/myorg/analytics/suites/mypipeline"
 
   stub buildkite-agent \
-    "oidc request-token --audience ${audience} --lifetime 300 : echo faketoken"
+    "oidc request-token --audience ${audience} --lifetime 7200 : echo faketoken"
   stub curl \
     "-s -w '\\n%{http_code}' -H 'Authorization: Bearer faketoken' 'https://api.buildkite.com/v2/analytics/organizations/myorg/suites/mypipeline' : echo '{}' ; echo 500"
 
@@ -116,8 +143,8 @@ setup() {
   org_audience="https://buildkite.com/myorg"
 
   stub buildkite-agent \
-    "oidc request-token --audience ${suite_audience} --lifetime 300 : echo suitetoken" \
-    "oidc request-token --audience ${org_audience} --lifetime 300 : echo orgtoken"
+    "oidc request-token --audience ${suite_audience} --lifetime 7200 : echo suitetoken" \
+    "oidc request-token --audience ${org_audience} --lifetime 7200 : echo orgtoken"
   stub curl \
     "-s -w '\\n%{http_code}' -H 'Authorization: Bearer suitetoken' 'https://api.buildkite.com/v2/analytics/organizations/myorg/suites/mypipeline' : echo '{}' ; echo 404" \
     "-s -w '\\n%{http_code}' -X POST -H 'Authorization: Bearer orgtoken' -H 'Content-Type: application/json' --data '{}' 'https://api.buildkite.com/v2/analytics/organizations/myorg/suites/create_from_pipeline' : echo '{}' ; echo 500"
@@ -139,7 +166,7 @@ setup() {
   tmpdir="/tmp/buildkite-plugin-test-engine/3.1.0-rc.1/linux_amd64"
   tmpfile="${tmpdir}/bktec.1234567"
 
-  stub buildkite-agent "oidc request-token --audience ${audience} --lifetime 300 : echo faketoken"
+  stub buildkite-agent "oidc request-token --audience ${audience} --lifetime 7200 : echo faketoken"
   stub mktemp "${tmpdir}/bktec.XXXXXXX : echo ${tmpfile}"
   stub curl \
     "-s -w '\\n%{http_code}' -H 'Authorization: Bearer faketoken' 'https://api.buildkite.com/v2/analytics/organizations/myorg/suites/mypipeline' : echo '{}' ; echo 200" \
@@ -164,7 +191,7 @@ setup() {
   tmpdir="/tmp/buildkite-plugin-test-engine/2.6.0/linux_amd64"
   tmpfile="${tmpdir}/bktec.1234567"
 
-  stub buildkite-agent "oidc request-token --audience ${audience} --lifetime 300 : echo faketoken"
+  stub buildkite-agent "oidc request-token --audience ${audience} --lifetime 7200 : echo faketoken"
   stub mktemp "${tmpdir}/bktec.XXXXXXX : echo ${tmpfile}"
   stub curl \
     "-s -w '\\n%{http_code}' -H 'Authorization: Bearer faketoken' 'https://api.buildkite.com/v2/analytics/organizations/myorg/suites/mypipeline' : echo '{}' ; echo 200" \
@@ -207,7 +234,7 @@ setup() {
   assert_output "bktec version 3.3.0"
 
   audience="https://buildkite.com/organizations/myorg/analytics/suites/mypipeline"
-  stub buildkite-agent "oidc request-token --audience ${audience} --lifetime 300 : echo faketoken"
+  stub buildkite-agent "oidc request-token --audience ${audience} --lifetime 7200 : echo faketoken"
   stub curl \
     "-s -w '\\n%{http_code}' -H 'Authorization: Bearer faketoken' 'https://api.buildkite.com/v2/analytics/organizations/myorg/suites/mypipeline' : echo '{}' ; echo 200"
 
@@ -231,7 +258,7 @@ setup() {
 
   audience="https://buildkite.com/organizations/myorg/analytics/suites/mypipeline"
 
-  stub buildkite-agent "oidc request-token --audience ${audience} --lifetime 300 : echo faketoken"
+  stub buildkite-agent "oidc request-token --audience ${audience} --lifetime 7200 : echo faketoken"
   stub curl \
     "-s -w '\\n%{http_code}' -H 'Authorization: Bearer faketoken' 'https://api.buildkite.com/v2/analytics/organizations/myorg/suites/mypipeline' : echo '{}' ; echo 200"
 
@@ -251,7 +278,7 @@ setup() {
 
   audience="https://buildkite.com/organizations/myorg/analytics/suites/mypipeline"
 
-  stub buildkite-agent "oidc request-token --audience ${audience} --lifetime 300 : echo faketoken"
+  stub buildkite-agent "oidc request-token --audience ${audience} --lifetime 7200 : echo faketoken"
   stub curl \
     "-s -w '\\n%{http_code}' -H 'Authorization: Bearer faketoken' 'https://api.buildkite.com/v2/analytics/organizations/myorg/suites/mypipeline' : echo '{}' ; echo 200"
 
@@ -269,7 +296,7 @@ setup() {
 
   audience="https://buildkite.com/organizations/myorg/analytics/suites/mypipeline"
 
-  stub buildkite-agent "oidc request-token --audience ${audience} --lifetime 300 : echo faketoken"
+  stub buildkite-agent "oidc request-token --audience ${audience} --lifetime 7200 : echo faketoken"
   stub curl \
     "-s -w '\\n%{http_code}' -H 'Authorization: Bearer faketoken' 'https://api.buildkite.com/v2/analytics/organizations/myorg/suites/mypipeline' : echo '{}' ; echo 200"
 
@@ -293,7 +320,7 @@ setup() {
 
   audience="https://buildkite.com/organizations/myorg/analytics/suites/mypipeline"
 
-  stub buildkite-agent "oidc request-token --audience ${audience} --lifetime 300 : echo faketoken"
+  stub buildkite-agent "oidc request-token --audience ${audience} --lifetime 7200 : echo faketoken"
   stub curl \
     "-s -w '\\n%{http_code}' -H 'Authorization: Bearer faketoken' 'https://api.buildkite.com/v2/analytics/organizations/myorg/suites/mypipeline' : echo '{}' ; echo 200"
 
@@ -322,7 +349,7 @@ setup() {
 
   audience="https://buildkite.com/organizations/myorg/analytics/suites/mypipeline"
 
-  stub buildkite-agent "oidc request-token --audience ${audience} --lifetime 300 : echo faketoken"
+  stub buildkite-agent "oidc request-token --audience ${audience} --lifetime 7200 : echo faketoken"
   stub curl \
     "-s -w '\\n%{http_code}' -H 'Authorization: Bearer faketoken' 'https://api.buildkite.com/v2/analytics/organizations/myorg/suites/mypipeline' : echo '{}' ; echo 200"
   stub bktec \

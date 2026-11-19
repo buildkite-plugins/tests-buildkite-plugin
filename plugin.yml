@@ -9,7 +9,7 @@ configuration:
     # Plugin-specific
     oidc-lifetime:
       type: integer
-      description: Lifetime in seconds for the OIDC token. Defaults to 300.
+      description: Lifetime in seconds for the OIDC token. Defaults to 7200 (2 hours).
     install-client:
       type: boolean
       description: >-

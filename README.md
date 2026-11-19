@@ -264,7 +264,7 @@ Command that prints the tests to run, one per line. Its output is exported as `B
 
 #### `oidc-lifetime` (optional, integer)
 
-Lifetime in seconds for the OIDC token. Default: `300`.
+Lifetime in seconds for the OIDC token. Default: `7200` (2 hours), matching bktec's default. The token is used throughout the job, including test result uploads, so set this longer than the time from the pre-command hook to the end of the job.
 
 ## How it works
 
