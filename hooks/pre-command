@@ -136,11 +136,8 @@ suite_oidc_audience() {
   echo "${BKTEC_APP_URL}/organizations/${BUILDKITE_ORGANIZATION_SLUG:-}/analytics/suites/${slug}"
 }
 
-# The lifetime defaults to the oidc-lifetime option, which sets how long the
-# suite token exported to the job stays valid.
 request_oidc_token() {
-  local audience="$1" lifetime
-  lifetime="${2:-${BUILDKITE_PLUGIN_TESTS_OIDC_LIFETIME:-7200}}"
+  local audience="$1" lifetime="$2"
   # Log to stderr so the caller can capture just the token from stdout.
   echo "--- :buildkite::key: Requesting OIDC token for Test Suite" >&2
   echo "Audience: ${audience}" >&2
@@ -217,8 +214,7 @@ ensure_suite() {
     # is invalid until the suite exists, so auth fails before we get a 404.
     echo "Test Suite not found (HTTP ${get_suite_status}), bootstrapping from Pipeline" >&2
     local org_token create_suite_status
-    # The org token is used once, immediately, and never exported, so it
-    # does not need the suite token's job-length lifetime.
+    # The bootstrap token only needs to last for this request.
     org_token="$(request_oidc_token "$(org_oidc_audience)" 300)"
     echo "--- :buildkite: Creating Test Suite using OIDC token" >&2
     create_suite_status="$(create_suite "$org_token" "${BUILDKITE_PLUGIN_TESTS_SUITE_SLUG:-}")"
@@ -233,7 +229,7 @@ ensure_suite() {
   echo "$slug"
 }
 
-suite_token="$(request_oidc_token "$(suite_oidc_audience)")"
+suite_token="$(request_oidc_token "$(suite_oidc_audience)" "${BUILDKITE_PLUGIN_TESTS_OIDC_LIFETIME:-7200}")"
 suite_slug="$(ensure_suite "$suite_token")"
 export BUILDKITE_TEST_ENGINE_SUITE_SLUG="$suite_slug"
 export BUILDKITE_ANALYTICS_TOKEN="$suite_token"

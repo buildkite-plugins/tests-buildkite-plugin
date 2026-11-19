@@ -34,25 +34,33 @@ setup() {
   unstub curl
 }
 
-@test "respects an explicit OIDC token lifetime" {
+@test "overrides the suite token lifetime without extending the bootstrap token" {
   export BUILDKITE_ENV_FILE=$(mktemp)
   export BUILDKITE_ORGANIZATION_SLUG="myorg"
   export BUILDKITE_PIPELINE_SLUG="mypipeline"
   export BUILDKITE_PLUGIN_TESTS_INSTALL_CLIENT=false
   export BUILDKITE_PLUGIN_TESTS_OIDC_LIFETIME=900
 
-  audience="https://buildkite.com/organizations/myorg/analytics/suites/mypipeline"
+  suite_audience="https://buildkite.com/organizations/myorg/analytics/suites/mypipeline"
+  org_audience="https://buildkite.com/myorg"
 
-  stub buildkite-agent "oidc request-token --audience ${audience} --lifetime 900 : echo faketoken"
+  stub buildkite-agent \
+    "oidc request-token --audience ${suite_audience} --lifetime 900 : echo suitetoken" \
+    "oidc request-token --audience ${org_audience} --lifetime 300 : echo orgtoken"
   stub curl \
-    "-s -w '\\n%{http_code}' -H 'Authorization: Bearer faketoken' 'https://api.buildkite.com/v2/analytics/organizations/myorg/suites/mypipeline' : echo '{}' ; echo 200"
+    "-s -w '\\n%{http_code}' -H 'Authorization: Bearer suitetoken' 'https://api.buildkite.com/v2/analytics/organizations/myorg/suites/mypipeline' : echo '{}' ; echo 401" \
+    "-s -w '\\n%{http_code}' -X POST -H 'Authorization: Bearer orgtoken' -H 'Content-Type: application/json' --data '{}' 'https://api.buildkite.com/v2/analytics/organizations/myorg/suites/create_from_pipeline' : echo '{}' ; echo 201"
 
   run $PWD/hooks/pre-command
   assert_success
 
-  source ${BUILDKITE_ENV_FILE}
-  assert_equal "${BUILDKITE_ANALYTICS_TOKEN}" faketoken
-  assert_equal "${BUILDKITE_TEST_ENGINE_API_ACCESS_TOKEN}" faketoken
+  source "${BUILDKITE_ENV_FILE}"
+  assert_equal "${BUILDKITE_TEST_ENGINE_SUITE_SLUG}" mypipeline
+  assert_equal "${BUILDKITE_ANALYTICS_TOKEN}" suitetoken
+  assert_equal "${BUILDKITE_TEST_ENGINE_API_ACCESS_TOKEN}" suitetoken
+
+  run cat "${BUILDKITE_ENV_FILE}"
+  refute_output --partial orgtoken
 
   unstub buildkite-agent
   unstub curl
