@@ -11,7 +11,7 @@ steps:
   - label: "RSpec"
     command: bktec run
     plugins:
-      - tests#v1.1.0:
+      - tests#v1.2.0:
           test-runner: rspec
           result-path: tmp/rspec-result.json
     parallelism: 2
@@ -30,7 +30,7 @@ steps:
   - label: "Jest"
     command: bktec run
     plugins:
-      - tests#v1.1.0:
+      - tests#v1.2.0:
           test-runner: jest
           result-path: jest-results.json
     parallelism: 4
@@ -44,7 +44,7 @@ steps:
     command: bktec run
     parallelism: 5
     plugins:
-      - tests#v1.1.0:
+      - tests#v1.2.0:
           test-runner: pytest
 ```
 
@@ -55,7 +55,7 @@ steps:
   - label: "Go test"
     command: bktec run
     plugins:
-      - tests#v1.1.0:
+      - tests#v1.2.0:
           test-runner: gotest
           result-path: gotest-results.xml
     parallelism: 4
@@ -71,7 +71,7 @@ steps:
     key: rspec-plan
     command: bktec plan --pipeline-upload .buildkite/rspec-template.yml
     plugins:
-      - tests#v1.1.0:
+      - tests#v1.2.0:
           test-runner: rspec
           result-path: tmp/rspec-result.json
           max-parallelism: 10
@@ -88,7 +88,7 @@ steps:
     command: bktec run --plan-identifier ${BUILDKITE_TEST_ENGINE_PLAN_IDENTIFIER}
     parallelism: ${BUILDKITE_TEST_ENGINE_PARALLELISM}
     plugins:
-      - tests#v1.1.0:
+      - tests#v1.2.0:
           test-runner: rspec
           result-path: tmp/rspec-result.json
 ```
@@ -104,7 +104,7 @@ steps:
     if: build.pull_request.id != null
     command: bktec plan --pipeline-upload .buildkite/rspec-template.yml
     plugins:
-      - tests#v1.1.0:
+      - tests#v1.2.0:
           test-runner: rspec
           result-path: tmp/rspec-result.json
           max-parallelism: 10
@@ -125,7 +125,7 @@ steps:
   - label: "Jest"
     command: bktec run
     plugins:
-      - tests#v1.1.0:
+      - tests#v1.2.0:
           test-runner: jest
           client-os: linux
           result-path: jest-results.json
@@ -227,7 +227,7 @@ Tags to attach to the uploaded test results. Each tag is a `key=value` string.
 
 ```yaml
 plugins:
-  - tests#v1.1.0:
+  - tests#v1.2.0:
       test-runner: rspec
       tags:
         - "language.version=3.3"
