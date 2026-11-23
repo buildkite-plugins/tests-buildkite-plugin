@@ -258,7 +258,9 @@ Target architecture for the downloaded binary, for example `amd64` or `arm64`. D
 
 #### `client-version` (optional, string)
 
-Client version to download, for example `2.4.0` or `3.1.0-rc.1`. An optional leading `v` is accepted. Defaults to the latest release on the [compatibility release channel](https://github.com/buildkite/test-engine-client/releases/latest).
+Client version to download, for example `3.6.0` or `3.1.0-rc.1`. An optional leading `v` is accepted. If unset, the plugin finds the latest CLI version using the [compatibility release channel](https://github.com/buildkite/test-engine-client/releases/latest), since the canonical repository also publishes test collectors.
+
+The plugin downloads CLI versions `3.6.0` and later, as well as `3.6.0-rc.3`, from [buildkite/bktest](https://github.com/buildkite/bktest/releases). Older pins still download from [buildkite/test-engine-client](https://github.com/buildkite/test-engine-client/releases).
 
 #### `manual-selection-command` (optional, string)
 

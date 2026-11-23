@@ -55,17 +55,16 @@ if [[ "$manual_selection" == true && -n "${BUILDKITE_PLUGIN_TESTS_CLIENT_VERSION
 fi
 
 verify_checksum() {
-  local bin="$1" version="$2" os="$3" arch="$4"
-  local checksums_url="https://github.com/buildkite/test-engine-client/releases/download/v${version}/bktec_${version}_checksums.txt"
+  local bin="$1" checksums_url="$2" asset="$3"
   local checksums
   checksums="$(curl -sfL "$checksums_url")" || {
     echo "Warning: could not fetch checksums from ${checksums_url}, skipping verification" >&2
     return 0
   }
   local expected
-  expected="$(awk -v f="bktec_${version}_${os}_${arch}" '$2 == f {print $1}' <<< "$checksums")"
+  expected="$(awk -v f="$asset" '$2 == f {print $1}' <<< "$checksums")"
   if [[ -z "$expected" ]]; then
-    echo "Error: no checksum entry found for bktec_${version}_${os}_${arch} — refusing to install unverified binary" >&2
+    echo "Error: no checksum entry found for ${asset} — refusing to install unverified binary" >&2
     return 1
   fi
   local actual sha256_cmd
@@ -79,13 +78,13 @@ verify_checksum() {
   fi
   actual="$($sha256_cmd "$bin" | awk '{print $1}')"
   if [[ "$actual" != "$expected" ]]; then
-    echo "Checksum mismatch for bktec ${version}: expected ${expected}, got ${actual}" >&2
+    echo "Checksum mismatch for ${asset}: expected ${expected}, got ${actual}" >&2
     return 1
   fi
-  echo "Checksum verified for bktec ${version}" >&2
+  echo "Checksum verified for ${asset}" >&2
 }
 
-download_bktec() {
+download_client() {
   local dir="$1" os arch version
   os="${BUILDKITE_PLUGIN_TESTS_CLIENT_OS:-$(uname -s | tr '[:upper:]' '[:lower:]')}"
   arch="${BUILDKITE_PLUGIN_TESTS_CLIENT_ARCH:-$(uname -m)}"
@@ -101,27 +100,39 @@ download_bktec() {
     fi
     version="${version#v}"
   else
-    echo "Fetching latest bktec version..." >&2
+    echo "Fetching latest CLI version..." >&2
+    # The canonical repository's Latest may be a collector, not the CLI.
     local github_api_url="https://api.github.com/repos/buildkite/test-engine-client/releases/latest"
     version="$(curl -sf ${GITHUB_TOKEN:+-H "Authorization: Bearer ${GITHUB_TOKEN}"} "$github_api_url" \
       | jq -r '.tag_name | ltrimstr("v")')" \
       || version="$(curl -sf "$github_api_url" | jq -r '.tag_name | ltrimstr("v")')"
   fi
-  local bin="${dir}/${version}/${os}_${arch}/bktec"
+  local repo="buildkite/test-engine-client" name="bktec"
+  # rc.3 was the first canonical release; rc.1 and rc.2 are legacy-only.
+  if [[ "$version" == 3.6.0-rc.3 ]] || ! version_lt "$version" 3.6.0; then
+    repo="buildkite/bktest"
+    name="bktest"
+  fi
+
+  local download_dir="${dir}/${version}/${os}_${arch}"
+  local bin="${download_dir}/${name}"
+  # Reuse binaries cached before the download source changed.
+  if [[ -x "${download_dir}/bktec" && ! -L "${download_dir}/bktec" ]]; then
+    bin="${download_dir}/bktec"
+  fi
   if [[ -x "$bin" ]]; then
-    echo "Using cached bktec ${version} (${os}/${arch})" >&2
+    echo "Using cached ${bin##*/} ${version} (${os}/${arch})" >&2
     echo "$bin"
     return
   fi
-  echo "Downloading bktec ${version} (${os}/${arch})" >&2
-  download_dir="${dir}/${version}/${os}_${arch}"
+  echo "Downloading ${name} ${version} (${os}/${arch})" >&2
   mkdir -p "$download_dir"
+  local release_url="https://github.com/${repo}/releases/download/v${version}"
+  local asset="${name}_${version}_${os}_${arch}"
   local tmp
-  tmp=$(mktemp "${download_dir}/bktec.XXXXXXX")
-  curl -fL --progress-bar \
-    "https://github.com/buildkite/test-engine-client/releases/download/v${version}/bktec_${version}_${os}_${arch}" \
-    -o "$tmp"
-  verify_checksum "$tmp" "$version" "$os" "$arch"
+  tmp=$(mktemp "${download_dir}/${name}.XXXXXXX")
+  curl -fL --progress-bar "${release_url}/${asset}" -o "$tmp"
+  verify_checksum "$tmp" "${release_url}/${name}_${version}_checksums.txt" "$asset"
   chmod +x "$tmp"
   mv "$tmp" "$bin"
   echo "$bin"
@@ -240,7 +251,7 @@ export BUILDKITE_TEST_ENGINE_API_ACCESS_TOKEN="$suite_token"
 propagate_env BUILDKITE_TEST_ENGINE_SUITE_SLUG BUILDKITE_ANALYTICS_TOKEN BUILDKITE_TEST_ENGINE_API_ACCESS_TOKEN
 
 if [[ "${BUILDKITE_PLUGIN_TESTS_INSTALL_CLIENT:-true}" =~ ^(true|on|1)$ ]]; then
-  echo "--- :buildkite: Installing bktec" >&2
+  echo "--- :buildkite: Installing Test Engine Client" >&2
 
   # install only if bktec is NOT already on PATH,
   # or if a specific version/OS/arch is requested.
@@ -254,11 +265,15 @@ if [[ "${BUILDKITE_PLUGIN_TESTS_INSTALL_CLIENT:-true}" =~ ^(true|on|1)$ ]]; then
   }
 
   if should_install_bktec; then
-    BKTEC_BIN="$(download_bktec "${TMPDIR:-/tmp}/buildkite-plugin-test-engine")"
-    BKTEC_DIR="$(dirname "$BKTEC_BIN")"
-    ln -sf bktec "${BKTEC_DIR}/bktest"
-    export BUILDKITE_TEST_ENGINE_CLIENT_PATH="$BKTEC_BIN"
-    export PATH="${BKTEC_DIR}:${PATH}"
+    CLIENT_BIN="$(download_client "${TMPDIR:-/tmp}/buildkite-plugin-test-engine")"
+    CLIENT_DIR="$(dirname "$CLIENT_BIN")"
+    if [[ "${CLIENT_BIN##*/}" == bktest ]]; then
+      ln -sfn bktest "${CLIENT_DIR}/bktec"
+    else
+      ln -sfn bktec "${CLIENT_DIR}/bktest"
+    fi
+    export BUILDKITE_TEST_ENGINE_CLIENT_PATH="${CLIENT_DIR}/bktec"
+    export PATH="${CLIENT_DIR}:${PATH}"
   else
     BKTEC_BIN="$(command -v bktec)"
     echo "bktec already installed at ${BKTEC_BIN}, skipping download" >&2

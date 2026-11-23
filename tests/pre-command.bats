@@ -199,7 +199,7 @@ setup() {
   assert_output "fake bktec"
 }
 
-@test "exposes a fresh download as both bktec and bktest" {
+@test "uses legacy Latest to download and verify the canonical CLI release" {
   export BUILDKITE_ENV_FILE=$(mktemp)
   export BUILDKITE_ORGANIZATION_SLUG="myorg" 
   export BUILDKITE_PIPELINE_SLUG="mypipeline" 
@@ -208,33 +208,45 @@ setup() {
   export BUILDKITE_PLUGIN_TESTS_CLIENT_ARCH="amd64"
 
   audience="https://buildkite.com/organizations/myorg/analytics/suites/mypipeline"
-  tmpdir="${TMPDIR}/buildkite-plugin-test-engine/2.6.0/linux_amd64"
-  tmpfile="${tmpdir}/bktec.1234567"
+  tmpdir="${TMPDIR}/buildkite-plugin-test-engine/3.6.0/linux_amd64"
+  tmpfile="${tmpdir}/bktest.1234567"
 
   stub buildkite-agent "oidc request-token --audience ${audience} --lifetime 7200 : echo faketoken"
-  stub mktemp "${tmpdir}/bktec.XXXXXXX : echo ${tmpfile}"
+  stub mktemp "${tmpdir}/bktest.XXXXXXX : echo ${tmpfile}"
   stub curl \
     "-s -w '\\n%{http_code}' -H 'Authorization: Bearer faketoken' 'https://api.buildkite.com/v2/analytics/organizations/myorg/suites/mypipeline' : echo '{}' ; echo 200" \
-    "-sf https://api.github.com/repos/buildkite/test-engine-client/releases/latest : cat $PWD/tests/fixtures/bktec-releases.json" \
-    "-fL --progress-bar https://github.com/buildkite/test-engine-client/releases/download/v2.6.0/bktec_2.6.0_linux_amd64 -o ${tmpfile} : cp $PWD/tests/fixtures/bktec_2.6.0 ${tmpfile}" \
-    "-sfL https://github.com/buildkite/test-engine-client/releases/download/v2.6.0/bktec_2.6.0_checksums.txt : cat $PWD/tests/fixtures/bktec_2.6.0_checksums.txt"
+    "-sf https://api.github.com/repos/buildkite/test-engine-client/releases/latest : echo '{\"tag_name\":\"v3.6.0\"}'" \
+    "-fL --progress-bar https://github.com/buildkite/bktest/releases/download/v3.6.0/bktest_3.6.0_linux_amd64 -o ${tmpfile} : cp $PWD/tests/fixtures/bktec_2.6.0 ${tmpfile}" \
+    "-sfL https://github.com/buildkite/bktest/releases/download/v3.6.0/bktest_3.6.0_checksums.txt : cat $PWD/tests/fixtures/bktest_3.6.0_checksums.txt" \
+    "-s -w '\\n%{http_code}' -H 'Authorization: Bearer faketoken' 'https://api.buildkite.com/v2/analytics/organizations/myorg/suites/mypipeline' : echo '{}' ; echo 200"
   export BUILDKITE_PLUGIN_TESTS_INSTALL_CLIENT=true
 
   source $PWD/hooks/pre-command
 
   assert_equal "${BUILDKITE_TEST_ENGINE_CLIENT_PATH}" "${tmpdir}/bktec"
   assert_equal "$(command -v bktec)" "${BUILDKITE_TEST_ENGINE_CLIENT_PATH}"
+  assert_equal "$(readlink "${BUILDKITE_TEST_ENGINE_CLIENT_PATH}")" bktest
+  assert_equal "$(command -v bktest)" "${tmpdir}/bktest"
 
-  run bktest
+  # Reuse the downloaded bktest when a later step requests the version explicitly.
+  stub buildkite-agent "oidc request-token --audience ${audience} --lifetime 7200 : echo faketoken"
+  export BUILDKITE_PLUGIN_TESTS_CLIENT_VERSION=v3.6.0
+  source $PWD/hooks/pre-command
+
+  run "${BUILDKITE_TEST_ENGINE_CLIENT_PATH}"
   assert_success
   assert_output "fake bktec"
+
+  unstub buildkite-agent
+  unstub mktemp
+  unstub curl
 }
 
-@test "pinned bktec takes precedence over an older executable on PATH" {
+@test "reuses a pre-migration cache entry for the pinned version" {
   export BUILDKITE_ENV_FILE=$(mktemp)
   export BUILDKITE_ORGANIZATION_SLUG="myorg"
   export BUILDKITE_PIPELINE_SLUG="mypipeline"
-  export BUILDKITE_PLUGIN_TESTS_CLIENT_VERSION="3.3.1"
+  export BUILDKITE_PLUGIN_TESTS_CLIENT_VERSION="3.6.0"
   export BUILDKITE_PLUGIN_TESTS_CLIENT_OS="linux"
   export BUILDKITE_PLUGIN_TESTS_CLIENT_ARCH="amd64"
   export TMPDIR="${BATS_TEST_TMPDIR}"
@@ -244,10 +256,10 @@ setup() {
   export PATH="${BATS_MOCK_BINDIR}:${PATH}"
 
   old_dir="${BATS_TEST_TMPDIR}/old-bin"
-  selected_dir="${TMPDIR}/buildkite-plugin-test-engine/3.3.1/linux_amd64"
+  selected_dir="${TMPDIR}/buildkite-plugin-test-engine/3.6.0/linux_amd64"
   mkdir -p "$old_dir" "$selected_dir"
   printf '%s\n' '#!/usr/bin/env bash' 'echo "bktec version 3.3.0"' > "${old_dir}/bktec"
-  printf '%s\n' '#!/usr/bin/env bash' 'echo "bktec version 3.3.1"' > "${selected_dir}/bktec"
+  printf '%s\n' '#!/usr/bin/env bash' 'echo "bktest v3.6.0"' > "${selected_dir}/bktec"
   chmod +x "${old_dir}/bktec" "${selected_dir}/bktec"
   export PATH="${old_dir}:${PATH}"
 
@@ -265,11 +277,11 @@ setup() {
   assert_equal "${BUILDKITE_TEST_ENGINE_CLIENT_PATH}" "${selected_dir}/bktec"
   run bktec --version
   assert_success
-  assert_output "bktec version 3.3.1"
+  assert_output "bktest v3.6.0"
 
   run bktest --version
   assert_success
-  assert_output "bktec version 3.3.1"
+  assert_output "bktest v3.6.0"
 
   unstub buildkite-agent
   unstub curl
