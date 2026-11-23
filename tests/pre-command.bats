@@ -116,7 +116,13 @@ setup() {
   stub bktec \
     "--version : echo 'bktec version 2.6.0'"
 
-  run $PWD/hooks/pre-command
+  run bash -c '
+    original_path="$PATH"
+    source "$1"
+    [[ "$PATH" == "$original_path" &&
+       "$BUILDKITE_TEST_ENGINE_CLIENT_PATH" == "$(command -v bktec)" &&
+       ! -e "${BUILDKITE_TEST_ENGINE_CLIENT_PATH%/*}/bktest" ]]
+  ' bash "$PWD/hooks/pre-command"
   assert_success
   assert_output --partial "Warning: bktec 2.6.0 does not support upload_results"
 
@@ -193,13 +199,16 @@ setup() {
   assert_output "fake bktec"
 }
 
-@test "downloads bktec when requested" {
+@test "exposes a fresh download as both bktec and bktest" {
   export BUILDKITE_ENV_FILE=$(mktemp)
   export BUILDKITE_ORGANIZATION_SLUG="myorg" 
   export BUILDKITE_PIPELINE_SLUG="mypipeline" 
+  export TMPDIR="${BATS_TEST_TMPDIR}"
+  export BUILDKITE_PLUGIN_TESTS_CLIENT_OS="linux"
+  export BUILDKITE_PLUGIN_TESTS_CLIENT_ARCH="amd64"
 
   audience="https://buildkite.com/organizations/myorg/analytics/suites/mypipeline"
-  tmpdir="/tmp/buildkite-plugin-test-engine/2.6.0/linux_amd64"
+  tmpdir="${TMPDIR}/buildkite-plugin-test-engine/2.6.0/linux_amd64"
   tmpfile="${tmpdir}/bktec.1234567"
 
   stub buildkite-agent "oidc request-token --audience ${audience} --lifetime 7200 : echo faketoken"
@@ -213,9 +222,11 @@ setup() {
 
   source $PWD/hooks/pre-command
 
-  assert_equal "${BUILDKITE_TEST_ENGINE_CLIENT_PATH}" /tmp/buildkite-plugin-test-engine/2.6.0/linux_amd64/bktec
+  assert_equal "${BUILDKITE_TEST_ENGINE_CLIENT_PATH}" "${tmpdir}/bktec"
+  assert_equal "$(command -v bktec)" "${BUILDKITE_TEST_ENGINE_CLIENT_PATH}"
 
-  run "${BUILDKITE_TEST_ENGINE_CLIENT_PATH}"
+  run bktest
+  assert_success
   assert_output "fake bktec"
 }
 
@@ -253,6 +264,10 @@ setup() {
 
   assert_equal "${BUILDKITE_TEST_ENGINE_CLIENT_PATH}" "${selected_dir}/bktec"
   run bktec --version
+  assert_success
+  assert_output "bktec version 3.3.1"
+
+  run bktest --version
   assert_success
   assert_output "bktec version 3.3.1"
 

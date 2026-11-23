@@ -256,6 +256,7 @@ if [[ "${BUILDKITE_PLUGIN_TESTS_INSTALL_CLIENT:-true}" =~ ^(true|on|1)$ ]]; then
   if should_install_bktec; then
     BKTEC_BIN="$(download_bktec "${TMPDIR:-/tmp}/buildkite-plugin-test-engine")"
     BKTEC_DIR="$(dirname "$BKTEC_BIN")"
+    ln -sf bktec "${BKTEC_DIR}/bktest"
     export BUILDKITE_TEST_ENGINE_CLIENT_PATH="$BKTEC_BIN"
     export PATH="${BKTEC_DIR}:${PATH}"
   else
