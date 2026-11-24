@@ -262,6 +262,8 @@ Client version to download, for example `3.6.0` or `3.1.0-rc.1`. An optional lea
 
 The plugin downloads CLI versions `3.6.0` and later, as well as `3.6.0-rc.3`, from [buildkite/bktest](https://github.com/buildkite/bktest/releases). Older pins still download from [buildkite/test-engine-client](https://github.com/buildkite/test-engine-client/releases).
 
+If you pin a client older than `3.6.0`, you can keep calling `bktec`. Plugin v1.3.0 also provides `bktest` for plugin-managed installs of those versions. Use `bktec` if you're on plugin v1.2.0 or earlier and rely on the plugin to install the client, or if your own install only provides `bktec`.
+
 #### `manual-selection-command` (optional, string)
 
 Command that prints the tests to run, one per line. Its output is exported as `BUILDKITE_TEST_ENGINE_SELECTION_SELECTORS`. Skipped, with a warning, when `selection-strategy` is set to anything other than `manual`. See [Manual test selection](#manual-test-selection).
