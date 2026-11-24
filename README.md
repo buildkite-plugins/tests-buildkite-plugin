@@ -17,7 +17,9 @@ steps:
     parallelism: 2
 ```
 
-The plugin sets up the environment but does not run the test command for you. These examples use `bktest` with Tests plugin v1.3.0. Existing pipelines can keep using `bktec`. If your agent already has `bktec` but not `bktest`, keep using `bktec` or set [`client-version`](#client-version-optional-string) to request a plugin-managed install.
+Use `bktest run` to run tests or `bktest plan` to create a test plan. The plugin sets up the environment but does not run the command for you.
+
+> **Compatibility:** From Tests plugin v1.3.0 onward, plugin-managed installs provide both `bktest` and `bktec`. Existing pipelines can keep using `bktec`. If your agent already has `bktec` but not `bktest`, keep using `bktec` or set [`client-version`](#client-version-optional-string) to request a plugin-managed install.
 
 If the `suite-slug` attribute is not set, the plugin uses the pipeline slug as the test suite slug. If the test suite does not exist yet, the plugin creates it from the pipeline on the first run.
 
