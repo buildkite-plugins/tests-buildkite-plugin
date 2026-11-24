@@ -1,8 +1,8 @@
 # Tests Buildkite Plugin [![Build status](https://badge.buildkite.com/74fa0467f2882c02503bf4fea1fec74d1ce5830e47307651bb.svg?branch=main)](https://buildkite.com/buildkite/plugins-tests)
 
-The Buildkite plugin for automatically parallelising and running your test suites on Buildkite. It splits your tests across parallel jobs so they finish faster, and handles all the setup for you. The splitting and running is done by [bktec](https://github.com/buildkite/test-engine-client), the client this plugin installs and configures for you.
+The Buildkite plugin for automatically parallelising and running your test suites on Buildkite. It splits your tests across parallel jobs so they finish faster, and handles all the setup for you. The splitting and running is done by [bktest](https://github.com/buildkite/bktest), the client this plugin installs and configures for you.
 
-Behind the scenes, the plugin downloads bktec, requests an [OIDC](https://buildkite.com/docs/pipelines/security/oidc) token, ensures your [test suite](https://buildkite.com/docs/test-engine/test-suites) exists, and exports the environment variables bktec expects, so you do not have to install bktec, set up authentication, or create your test suite by hand. It works with every test runner that bktec supports, including RSpec, Jest, pytest, and Go test.
+Behind the scenes, the plugin downloads the client, requests an [OIDC](https://buildkite.com/docs/pipelines/security/oidc) token, ensures your [test suite](https://buildkite.com/docs/test-engine/test-suites) exists, and exports the environment variables bktest expects, so you do not have to install the client, set up authentication, or create your test suite by hand. It works with every test runner that bktest supports, including RSpec, Jest, pytest, and Go test.
 
 ## Example
 
@@ -17,7 +17,7 @@ steps:
     parallelism: 2
 ```
 
-Each step must invoke `bktec run` (or `bktec plan`) in its command — the plugin sets up the environment but does not run the test command for you. The plugin downloads bktec by default; set `install-client: false` if bktec is already installed on the agent.
+The plugin sets up the environment but does not run the test command for you. These examples pin `tests#v1.2.0`, which installs the client as `bktec`, so the steps use `bktec run` or `bktec plan`.
 
 If the `suite-slug` attribute is not set, the plugin uses the pipeline slug as the test suite slug. If the test suite does not exist yet, the plugin creates it from the pipeline on the first run.
 
@@ -141,7 +141,7 @@ steps:
 
 ### bktec options
 
-These options map directly to bktec flags or environment variables. For the full reference, see the [Test Engine Client repository](https://github.com/buildkite/test-engine-client).
+These options map directly to client flags or environment variables. For the full reference, see the [bktest repository](https://github.com/buildkite/bktest).
 
 #### `test-runner` (required, string)
 
@@ -244,7 +244,9 @@ These options control plugin behavior and are not passed to bktec.
 
 #### `install-client` (optional, boolean)
 
-Download the bktec binary, add it to the `PATH`, and set `BUILDKITE_TEST_ENGINE_CLIENT_PATH`. Default: `true`. Set to `false` if bktec is already installed on the agent.
+Default: `true`. On the current development branch, a plugin-managed install puts both `bktest` and `bktec` on `PATH`, including when the selected binary is cached. `BUILDKITE_TEST_ENGINE_CLIENT_PATH` still points to the `bktec` binary. Released plugin versions up to v1.2.0 install only the `bktec` name.
+
+If `bktec` is already on `PATH` and no `client-version`, `client-os`, or `client-arch` is set, the plugin uses that binary without adding a `bktest` alias. Set `install-client: false` to manage the install yourself; make sure the command name you invoke is available in the step's environment.
 
 #### `client-os` (optional, string)
 
@@ -256,7 +258,9 @@ Target architecture for the downloaded binary, for example `amd64` or `arm64`. D
 
 #### `client-version` (optional, string)
 
-bktec version to download, for example `2.4.0` or `3.1.0-rc.1`. An optional leading `v` is accepted. Defaults to the latest release.
+Client version to download, for example `3.6.0` or `3.1.0-rc.1`. An optional leading `v` is accepted. If unset, the plugin finds the latest CLI version using the [compatibility release channel](https://github.com/buildkite/test-engine-client/releases/latest), since the canonical repository also publishes test collectors.
+
+The plugin downloads CLI versions `3.6.0` and later, as well as `3.6.0-rc.3`, from [buildkite/bktest](https://github.com/buildkite/bktest/releases). Older pins still download from [buildkite/test-engine-client](https://github.com/buildkite/test-engine-client/releases).
 
 #### `manual-selection-command` (optional, string)
 
