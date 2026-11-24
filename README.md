@@ -9,15 +9,17 @@ Behind the scenes, the plugin downloads the client, requests an [OIDC](https://b
 ```yaml
 steps:
   - label: "RSpec"
-    command: bktec run
+    command: bktest run
     plugins:
-      - tests#v1.2.0:
+      - tests#v1.3.0:
           test-runner: rspec
           result-path: tmp/rspec-result.json
     parallelism: 2
 ```
 
-The plugin sets up the environment but does not run the test command for you. These examples pin `tests#v1.2.0`, which installs the client as `bktec`, so the steps use `bktec run` or `bktec plan`.
+Use `bktest run` to run tests or `bktest plan` to create a test plan. The plugin sets up the environment but does not run the command for you.
+
+> **Compatibility:** From Tests plugin v1.3.0 onward, plugin-managed installs provide both `bktest` and `bktec`. Existing pipelines can keep using `bktec`. If your agent already has `bktec` but not `bktest`, keep using `bktec` or set [`client-version`](#client-version-optional-string) to request a plugin-managed install.
 
 If the `suite-slug` attribute is not set, the plugin uses the pipeline slug as the test suite slug. If the test suite does not exist yet, the plugin creates it from the pipeline on the first run.
 
@@ -28,9 +30,9 @@ If the `suite-slug` attribute is not set, the plugin uses the pipeline slug as t
 ```yaml
 steps:
   - label: "Jest"
-    command: bktec run
+    command: bktest run
     plugins:
-      - tests#v1.2.0:
+      - tests#v1.3.0:
           test-runner: jest
           result-path: jest-results.json
     parallelism: 4
@@ -41,10 +43,10 @@ steps:
 ```yaml
 steps:
   - label: "Run tests"
-    command: bktec run
+    command: bktest run
     parallelism: 5
     plugins:
-      - tests#v1.2.0:
+      - tests#v1.3.0:
           test-runner: pytest
 ```
 
@@ -53,9 +55,9 @@ steps:
 ```yaml
 steps:
   - label: "Go test"
-    command: bktec run
+    command: bktest run
     plugins:
-      - tests#v1.2.0:
+      - tests#v1.3.0:
           test-runner: gotest
           result-path: gotest-results.xml
     parallelism: 4
@@ -63,15 +65,15 @@ steps:
 
 ### Dynamic parallelism
 
-To let bktec choose the number of partitions for a target run time, run `bktec plan` in a planning step with the `--pipeline-upload` flag, pointing at a pipeline template you supply. `bktec plan` uploads a follow-up step that runs the test plan. `--pipeline-upload` is passed directly to `bktec` in `command:` because it is not exposed as a plugin option (see [Unsupported bktec flags](#unsupported-bktec-flags)).
+To let bktest choose the number of partitions for a target run time, run `bktest plan` in a planning step with the `--pipeline-upload` flag, pointing at a pipeline template you supply. `bktest plan` uploads a follow-up step that runs the test plan. `--pipeline-upload` is passed directly to `bktest` in `command:` because it is not exposed as a plugin option (see [Unsupported bktest flags](#unsupported-bktest-flags)).
 
 ```yaml
 steps:
   - label: "Plan RSpec"
     key: rspec-plan
-    command: bktec plan --pipeline-upload .buildkite/rspec-template.yml
+    command: bktest plan --pipeline-upload .buildkite/rspec-template.yml
     plugins:
-      - tests#v1.2.0:
+      - tests#v1.3.0:
           test-runner: rspec
           result-path: tmp/rspec-result.json
           max-parallelism: 10
@@ -85,26 +87,26 @@ steps:
   - label: "RSpec"
     key: rspec-run
     depends_on: rspec-plan
-    command: bktec run --plan-identifier ${BUILDKITE_TEST_ENGINE_PLAN_IDENTIFIER}
+    command: bktest run --plan-identifier ${BUILDKITE_TEST_ENGINE_PLAN_IDENTIFIER}
     parallelism: ${BUILDKITE_TEST_ENGINE_PARALLELISM}
     plugins:
-      - tests#v1.2.0:
+      - tests#v1.3.0:
           test-runner: rspec
           result-path: tmp/rspec-result.json
 ```
 
 ### Manual test selection
 
-To run only the tests you choose, set `manual-selection-command` to a command that prints them, one per line. The plugin exports its output as `BUILDKITE_TEST_ENGINE_SELECTION_SELECTORS`, which `bktec plan` and `bktec run` read as the tests to select. Requires bktec 3.3.0 or later.
+To run only the tests you choose, set `manual-selection-command` to a command that prints them, one per line. The plugin exports its output as `BUILDKITE_TEST_ENGINE_SELECTION_SELECTORS`, which `bktest plan` and `bktest run` read as the tests to select. Requires Test Engine Client 3.3.0 or later.
 
 ```yaml
 steps:
   - label: "Select tests"
     key: select-tests
     if: build.pull_request.id != null
-    command: bktec plan --pipeline-upload .buildkite/rspec-template.yml
+    command: bktest plan --pipeline-upload .buildkite/rspec-template.yml
     plugins:
-      - tests#v1.2.0:
+      - tests#v1.3.0:
           test-runner: rspec
           result-path: tmp/rspec-result.json
           max-parallelism: 10
@@ -113,19 +115,19 @@ steps:
 
 Here `select-tests.sh` might print the changed specs with `git diff --name-only origin/main...HEAD -- '*_spec.rb'`, and `rspec-template.yml` is the run step from [Dynamic parallelism](#dynamic-parallelism) with `depends_on: select-tests`.
 
-- If the command prints no tests, the plan selects none and, with `max-parallelism` above 1, `bktec plan` uploads no run step. The step fails if the command fails.
-- To run the step in Docker, list `BUILDKITE_TEST_ENGINE_SELECTION_SELECTORS` under the Docker plugin's `environment:`. `propagate-environment` only passes variables the plugin writes to `BUILDKITE_ENV_FILE`, and the selectors aren't written there because that file can't hold multi-line values. Without it, bktec sends no selectors and the step fails.
+- If the command prints no tests, the plan selects none and, with `max-parallelism` above 1, `bktest plan` uploads no run step. The step fails if the command fails.
+- To run the step in Docker, list `BUILDKITE_TEST_ENGINE_SELECTION_SELECTORS` under the Docker plugin's `environment:`. `propagate-environment` only passes variables the plugin writes to `BUILDKITE_ENV_FILE`, and the selectors aren't written there because that file can't hold multi-line values. Without it, bktest sends no selectors and the step fails.
 
 ### Docker
 
-When the test command runs inside a Docker container, the plugin downloads bktec on the host (the default) and sets `BUILDKITE_TEST_ENGINE_CLIENT_PATH` that you can mount into the container. Set `propagate-environment: true` on the Docker plugin so the container picks up the `BUILDKITE_TEST_ENGINE_*` variables that are required to run `bktec`. Set `client-os` and `client-arch` when the host operating system or architecture differs from the container.
+When the test command runs inside a Docker container, the plugin sets `BUILDKITE_TEST_ENGINE_CLIENT_PATH` to the client path on the host. Mount it as `/usr/local/bin/bktest` to run `bktest` inside the container. Set `propagate-environment: true` on the Docker plugin so the container picks up the `BUILDKITE_TEST_ENGINE_*` variables. Set `client-os` and `client-arch` when the host operating system or architecture differs from the container.
 
 ```yaml
 steps:
   - label: "Jest"
-    command: bktec run
+    command: bktest run
     plugins:
-      - tests#v1.2.0:
+      - tests#v1.3.0:
           test-runner: jest
           client-os: linux
           result-path: jest-results.json
@@ -133,19 +135,19 @@ steps:
           image: node:24-slim
           expand-volume-vars: true
           volumes:
-            - "$$BUILDKITE_TEST_ENGINE_CLIENT_PATH:/usr/local/bin/bktec"
+            - "$$BUILDKITE_TEST_ENGINE_CLIENT_PATH:/usr/local/bin/bktest"
           propagate-environment: true
 ```
 
 ## Configuration
 
-### bktec options
+### bktest options
 
 These options map directly to client flags or environment variables. For the full reference, see the [bktest repository](https://github.com/buildkite/bktest).
 
 #### `test-runner` (required, string)
 
-Any runner supported by bktec, for example `rspec`, `jest`, `pytest`, or `gotest`.
+Any runner supported by bktest, for example `rspec`, `jest`, `pytest`, or `gotest`.
 
 #### `test-cmd` (required for `custom` and `pytest-pants` runners, string)
 
@@ -201,7 +203,7 @@ Test selection strategy for the test plan. `manual` is currently the only availa
 
 #### `max-parallelism` (optional, integer)
 
-Maximum parallelism for dynamic test plans. Used with `bktec plan`.
+Maximum parallelism for dynamic test plans. Used with `bktest plan`.
 
 #### `target-time` (optional, string)
 
@@ -209,7 +211,7 @@ Desired target time for the test suite, for example `4m30s`. Must be used with `
 
 #### `plan-identifier` (optional, string)
 
-Test plan identifier created by `bktec plan`. Set automatically in dynamic mode; can be set manually for static mode.
+Test plan identifier created by `bktest plan`. Set automatically in dynamic mode; can be set manually for static mode.
 
 #### `fail-on-no-tests` (optional, boolean)
 
@@ -219,7 +221,7 @@ Exit with an error if no tests are assigned to this node.
 
 Upload test results to your test suite. Default: `true`. Set to `false` if you use the [test collectors](https://buildkite.com/docs/test-engine/test-collection/) for richer data collection, or if you want to handle the upload yourself.
 
-Requires bktec 2.7.0 or later.
+Requires Test Engine Client 2.7.0 or later.
 
 #### `tags` (optional, array of strings)
 
@@ -227,7 +229,7 @@ Tags to attach to the uploaded test results. Each tag is a `key=value` string.
 
 ```yaml
 plugins:
-  - tests#v1.2.0:
+  - tests#v1.3.0:
       test-runner: rspec
       tags:
         - "language.version=3.3"
@@ -240,11 +242,11 @@ Enable verbose output.
 
 ### Plugin options
 
-These options control plugin behavior and are not passed to bktec.
+These options control plugin behavior and are not passed to bktest.
 
 #### `install-client` (optional, boolean)
 
-Default: `true`. On the current development branch, a plugin-managed install puts both `bktest` and `bktec` on `PATH`, including when the selected binary is cached. `BUILDKITE_TEST_ENGINE_CLIENT_PATH` still points to the `bktec` binary. Released plugin versions up to v1.2.0 install only the `bktec` name.
+Default: `true`. From plugin v1.3.0, a plugin-managed install puts both `bktest` and `bktec` on `PATH`, even for cached binaries and older client pins. `BUILDKITE_TEST_ENGINE_CLIENT_PATH` still uses the `bktec` path. Plugin v1.2.0 and earlier install only the `bktec` name.
 
 If `bktec` is already on `PATH` and no `client-version`, `client-os`, or `client-arch` is set, the plugin uses that binary without adding a `bktest` alias. Set `install-client: false` to manage the install yourself; make sure the command name you invoke is available in the step's environment.
 
@@ -262,13 +264,15 @@ Client version to download, for example `3.6.0` or `3.1.0-rc.1`. An optional lea
 
 The plugin downloads CLI versions `3.6.0` and later, as well as `3.6.0-rc.3`, from [buildkite/bktest](https://github.com/buildkite/bktest/releases). Older pins still download from [buildkite/test-engine-client](https://github.com/buildkite/test-engine-client/releases).
 
+If you pin a client older than `3.6.0`, you can keep calling `bktec`. Plugin v1.3.0 also provides `bktest` for plugin-managed installs of those versions. Use `bktec` if you're on plugin v1.2.0 or earlier and rely on the plugin to install the client, or if your own install only provides `bktec`.
+
 #### `manual-selection-command` (optional, string)
 
 Command that prints the tests to run, one per line. Its output is exported as `BUILDKITE_TEST_ENGINE_SELECTION_SELECTORS`. Skipped, with a warning, when `selection-strategy` is set to anything other than `manual`. See [Manual test selection](#manual-test-selection).
 
 #### `oidc-lifetime` (optional, integer)
 
-Lifetime in seconds for the suite-scoped OIDC token exported to bktec and test collectors. Default: `7200` (2 hours), matching bktec's default.
+Lifetime in seconds for the suite-scoped OIDC token exported to the client and test collectors. Default: `7200` (2 hours), matching the client's default.
 
 The token must cover setup, tests, and uploads. It is issued during `pre-command` and is not refreshed. Uploads after it expires fail, but the job can still pass.
 
@@ -284,10 +288,10 @@ sequenceDiagram
     participant OIDC as Buildkite OIDC
     participant API as Test Engine API
     participant GH as GitHub Releases
-    participant bktec
+    participant bktest
     participant Runner as Test Runner
 
-    Pipeline->>Agent: step with tests plugin and bktec run command
+    Pipeline->>Agent: step with tests plugin and bktest run command
 
     Note over Agent,Plugin: environment hook
     Plugin->>Plugin: map plugin options to BUILDKITE_TEST_ENGINE_* env vars
@@ -302,21 +306,21 @@ sequenceDiagram
         Plugin->>API: POST /suites/create_from_pipeline
         API-->>Plugin: suite created
     end
-    Plugin->>GH: download bktec binary (if install-client: true)
-    GH-->>Plugin: verified binary → added to PATH
+    Plugin->>GH: download client if a plugin-managed install is needed
+    GH-->>Plugin: verified binary → added to PATH as bktest and bktec
 
-    Note over Agent,bktec: command step
-    Agent->>bktec: bktec run
-    bktec->>API: fetch test plan for this node
-    API-->>bktec: assigned test files
-    bktec->>Runner: run assigned tests
-    Runner-->>bktec: results
-    bktec->>API: upload results
+    Note over Agent,bktest: command step
+    Agent->>bktest: bktest run
+    bktest->>API: fetch test plan for this node
+    API-->>bktest: assigned test files
+    bktest->>Runner: run assigned tests
+    Runner-->>bktest: results
+    bktest->>API: upload results
 ```
 
-## Unsupported bktec flags
+## Unsupported bktest flags
 
-A small number of bktec flags cannot be set through environment variables, so the plugin intentionally does not expose them as options. To use any of these, pass them directly to `bktec` in your step's `command:`.
+A small number of bktest flags cannot be set through environment variables, so the plugin intentionally does not expose them as options. To use any of these, pass them directly to `bktest` in your step's `command:`.
 
 | Flag                | Command                    | Notes                                               |
 | ------------------- | -------------------------- | --------------------------------------------------- |
